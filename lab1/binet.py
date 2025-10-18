@@ -1,0 +1,1 @@
+# w takich plikach możemy pisać algorytmy
