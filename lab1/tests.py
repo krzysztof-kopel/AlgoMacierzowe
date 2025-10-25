@@ -36,12 +36,12 @@ class MatrixMultiplicaitonTester:
         np.random.seed(0)
         matrix_a = np.random.rand(10, 10)
         matrix_b = np.random.rand(10, 10)
-        expected = np.dot(matrix_a, matrix_b)
+        expected = matrix_a @ matrix_b
         assert_allclose(self.function(matrix_a, matrix_b), expected)
 
     def test_random_matrices_large(self) -> None:
         np.random.seed(0)
         matrix_a = np.random.rand(100, 100)
         matrix_b = np.random.rand(100, 100)
-        expected = np.dot(matrix_a, matrix_b)
+        expected = matrix_a @ matrix_b
         assert_allclose(self.function(matrix_a, matrix_b), expected)
