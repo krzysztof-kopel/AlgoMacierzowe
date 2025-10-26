@@ -5,6 +5,7 @@ class BinetWrapper:
     def __init__(self):
         self.flops = 0
         self.memory_used = 0
+        self.time_used = [] # Tablica, aby można było mierzyć czas wielokrotnie i brać medianę
 
     def binet(self, matrix_a: np.ndarray, matrix_b: np.ndarray) -> np.ndarray:
         """
