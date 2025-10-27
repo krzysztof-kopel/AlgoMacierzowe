@@ -82,7 +82,7 @@ class StrassenWrapper:
 
         A11, A12, A21, A22 = A[:k, :k], A[:k, k:], A[k:, :k], A[k:, k:]
         B11, B12, B21, B22 = B[:k, :k], B[:k, k:], B[k:, :k], B[k:, k:]
-        self.flops += 8 * (k ** 2)
+        self.flops += 18 * (k ** 2)
 
         def felxible_multiply(X, Y):
             if X.shape == Y.shape and X.shape[0] == X.shape[1] and X.shape[0] > 4:
@@ -103,7 +103,7 @@ class StrassenWrapper:
         C21 = P2 + P4
         C22 = P1 - P2 + P3 + P6
 
-        self.flops += 10 * (k ** 2)
+        self.flops += 8 * (k ** 2)
 
         C = np.vstack([
             np.hstack([C11, C12]),
