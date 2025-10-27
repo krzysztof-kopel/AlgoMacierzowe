@@ -12,7 +12,7 @@ class MatrixMultiplicaitonTester:
         self.test_three_by_three_matrices()
         self.test_random_matrices_small()
         self.test_random_matrices_large()
-        print("Wszystkie testy przeszły!")
+        print("All tests passed!")
 
     def test_one_by_one_matrices(self) -> None:
         matrix_a = np.array([4])
