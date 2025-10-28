@@ -1,5 +1,4 @@
 import numpy as np
-import time
 from tests import MatrixMultiplicaitonTester
 
 class StrassenWrapper:
@@ -100,7 +99,6 @@ class StrassenWrapper:
         Funkcja mnożenia macierzy metodą Strassena, zoptymalizowana dla macierzy dowolnych rozmiarów.
         Przyjmuje macierze A i B o dowolnym rozmiarze, zwraca macierz C będącą wynikiem mnożenia A i B
         """
-        start_time = time.time()
 
         if A.ndim == 1:
             A = A.reshape(1, 1)
@@ -120,9 +118,6 @@ class StrassenWrapper:
         C = C_pad[:n, :p].astype(A.dtype)
 
         self.memory_used += C.nbytes
-
-        end_time = time.time()
-        self.time_used.append(end_time - start_time)
 
         if C.shape[0] == 1 or C.shape[1] == 1:
             return C.reshape(-1)
