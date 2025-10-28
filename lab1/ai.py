@@ -10,6 +10,10 @@ class AIWrapper:
         self.time_used = []
 
     def ai_matrix_multiply_strict(self, A, B):
+        """
+        Funkcja mnożenia macierzy o rozmiarach 4x5, 5x5,
+        korzystająca ze sposobu opisanego w artykule AI killing Strassen, w czasopiśmie Nature.
+        """
         assert A.shape==(4,5) and B.shape==(5,5), "Incorrect sizes for this multiplication method, should be 4x5 and 5x5"
         H1  = A[2,1] * (-B[1,0] - B[1,4] - B[2,0])
         H2  = (A[1,1] + A[1,4] - A[2,4]) * (-B[1,4] - B[4,0])
@@ -111,6 +115,11 @@ class AIWrapper:
         return C
 
     def _ai_matrix_multiply(self, A, B):
+        """
+        Rozszerzenie funkcji ai_matrix_multiply_strict,
+        wykorzytsujące ją do mnożenia między sobą dwóch macierzy
+        o rozmiarach będących potęgami rozmiarów 4x5, 5x5. 
+        """
         assert (
             A.shape[1] == 5 ** round(log(A.shape[1], 5)) and
             A.shape[0] == 4 ** round(log(A.shape[0], 4)) and
@@ -139,6 +148,10 @@ class AIWrapper:
         return ai_matrix_multiply_rec(A, B)
     
     def ai_matrix_multiply(self, A, B):
+        """
+        Opakowanie funkcji _ai_matrix_multiply,
+        liczące czas trwaniam flops, oraz zużytą pamięć.
+        """
         start_time = time.time()
         self.memory_used += A.nbytes + B.nbytes
         self.flops += 76 * 10 + 4 * 5 * 9
