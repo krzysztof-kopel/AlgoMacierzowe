@@ -9,6 +9,9 @@ class StrassenWrapper:
         self.time_used = [] 
 
     def pad_matrix(self, A, new_shape):
+        """
+        Funkcja do uzupełnia macierzy prostokątnej A do rozmiaru kwadratowego new_shape
+        """
         m, n = A.shape
         m2, n2 = new_shape
         P = np.zeros((m2, n2), dtype=A.dtype)
@@ -17,6 +20,9 @@ class StrassenWrapper:
         return P
 
     def pad_matrix_even(self, A):
+        """
+        Funkcja do uzupełniania macierzy kwadratowej A o nieparzystym rozmiarze zerami tak aby rozmaiar był parzysty (jednen wiersz i kolumna zer)
+        """
         n = A.shape[0]
         if n % 2 == 0:
             return A
@@ -26,6 +32,9 @@ class StrassenWrapper:
         return P
 
     def matmul(self, A, B):
+        """
+        Funkcja klasycznego mnożenia macierzy
+        """
         assert A.shape[1] == B.shape[0], "Incorrect sizes"
         m, n, p = A.shape[0], A.shape[1], B.shape[1]
         C = np.zeros((m, p), dtype=A.dtype)
@@ -37,37 +46,11 @@ class StrassenWrapper:
                     self.flops += 2
         return C
 
-    def strassen(self, A, B):
-        start_time = time.time()
-
-        if A.ndim == 1:
-            A = A.reshape(1, 1)
-        if B.ndim == 1:
-            B = B.reshape(1, 1)
-        n, m = A.shape
-        m2, p = B.shape
-        assert m == m2, "Incorrect sizes"
-
-        q = max(m, n, p)
-
-        A_pad = self.pad_matrix(A, (q, q))
-        B_pad = self.pad_matrix(B, (q, q))
-
-        C_pad = self._strassen_flexible(A_pad, B_pad)
-
-        C = C_pad[:n, :p].astype(A.dtype)
-
-        self.memory_used += C.nbytes
-
-        end_time = time.time()
-        self.time_used.append(end_time - start_time)
-
-        if C.shape[0] == 1 or C.shape[1] == 1:
-            return C.reshape(-1)
-        else:
-            return C
-
     def _strassen_flexible(self, A, B):
+        """
+        Funkcja mnożenia dwóch macierzy kwadratowych metodą Strassena, dzięki odpowiedniemu paddingowi zerami (nie zachłannemu),
+        Można używać jej dla każdych dwóch odpowiadających macierzy kwadratowych, a nie tylko do takich o rozmiarze 2^n, gdzie n to liczba naturalna.
+        """
         n = A.shape[0]
 
         if n % 2 != 0:
@@ -111,6 +94,40 @@ class StrassenWrapper:
         ])
         self.memory_used += C.nbytes
         return C[:n, :n]
+
+    def strassen(self, A, B):
+        """
+        Funkcja mnożenia macierzy metodą Strassena, zoptymalizowana dla macierzy dowolnych rozmiarów.
+        Przyjmuje macierze A i B o dowolnym rozmiarze, zwraca macierz C będącą wynikiem mnożenia A i B
+        """
+        start_time = time.time()
+
+        if A.ndim == 1:
+            A = A.reshape(1, 1)
+        if B.ndim == 1:
+            B = B.reshape(1, 1)
+        n, m = A.shape
+        m2, p = B.shape
+        assert m == m2, "Incorrect sizes"
+
+        q = max(m, n, p)
+
+        A_pad = self.pad_matrix(A, (q, q))
+        B_pad = self.pad_matrix(B, (q, q))
+
+        C_pad = self._strassen_flexible(A_pad, B_pad)
+
+        C = C_pad[:n, :p].astype(A.dtype)
+
+        self.memory_used += C.nbytes
+
+        end_time = time.time()
+        self.time_used.append(end_time - start_time)
+
+        if C.shape[0] == 1 or C.shape[1] == 1:
+            return C.reshape(-1)
+        else:
+            return C
 
 
 if __name__ == "__main__":
