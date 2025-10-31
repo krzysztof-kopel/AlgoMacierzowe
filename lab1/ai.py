@@ -158,7 +158,6 @@ class AIWrapper:
         C = self._ai_matrix_multiply(A, B)
         self.memory_used += C.nbytes
         end_time = time.time()
-        self.time_used.append(end_time - start_time)
         return C
 
 if __name__ == "__main__":
