@@ -1,6 +1,4 @@
 import numpy as np
-import time
-from tests import MatrixMultiplicaitonTester
 from math import log
 
 class AIWrapper:
@@ -112,6 +110,7 @@ class AIWrapper:
         C[1,4] = int(-H10 - H18 - H2 - H30 - H38 + H42 - H43 + H46 + H67 + H74)
         C[2,4] = int(-H10 + H12 - H15 + H28 + H29 - H2 - H30 - H3 + H46 + H4 - H75)
         C[3,4] = int(-H12 - H29 + H30 - H34 + H35 + H39 + H3 - H45 + H57 + H59)
+        self.flops += 539
         return C
 
     def _ai_matrix_multiply(self, A, B):
@@ -152,12 +151,9 @@ class AIWrapper:
         Opakowanie funkcji _ai_matrix_multiply,
         liczące czas trwaniam flops, oraz zużytą pamięć.
         """
-        start_time = time.time()
         self.memory_used += A.nbytes + B.nbytes
-        self.flops += 76 * 10 + 4 * 5 * 9
         C = self._ai_matrix_multiply(A, B)
         self.memory_used += C.nbytes
-        end_time = time.time()
         return C
 
 if __name__ == "__main__":
