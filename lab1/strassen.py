@@ -119,10 +119,7 @@ class StrassenWrapper:
 
         self.memory_used += C.nbytes
 
-        if C.shape[0] == 1 or C.shape[1] == 1:
-            return C.reshape(-1)
-        else:
-            return C
+        return C
 
 
 if __name__ == "__main__":
