@@ -1,5 +1,4 @@
 import numpy as np
-from lab1.tests import MatrixMultiplicaitonTester
 
 class BinetWrapper:
     def __init__(self):
@@ -7,8 +6,11 @@ class BinetWrapper:
         self.memory_used = 0
         self.time_used = [] # Tablica, aby można było mierzyć czas wielokrotnie i brać medianę
 
-    def __call__(self, matrix_a: np.ndarray, matrix_b: np.ndarray) -> np.ndarray:
-        return self.binet(matrix_a, matrix_b)
+    def __call__(self, *args: tuple[np.ndarray]) -> np.ndarray:
+        result = args[0]
+        for arg in args[1:]:
+            result = self.binet(result, arg)
+        return result
 
     def binet(self, matrix_a: np.ndarray, matrix_b: np.ndarray) -> np.ndarray:
         """
@@ -72,6 +74,8 @@ class BinetWrapper:
 
 
 if __name__ == "__main__":
+    from lab1.tests import MatrixMultiplicaitonTester
+
     binet_wrapper = BinetWrapper()
     tester = MatrixMultiplicaitonTester(binet_wrapper.binet)
     tester.run_all_tests()

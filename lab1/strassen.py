@@ -1,5 +1,4 @@
 import numpy as np
-from tests import MatrixMultiplicaitonTester
 
 class StrassenWrapper:
     def __init__(self):
@@ -7,8 +6,11 @@ class StrassenWrapper:
         self.memory_used = 0
         self.time_used = []
 
-    def __call__(self, matrix_a: np.ndarray, matrix_b: np.ndarray) -> np.ndarray:
-        return self.strassen(matrix_a, matrix_b)
+    def __call__(self, *args: list[np.ndarray]) -> np.ndarray:
+        result = args[0]
+        for arg in args[1:]:
+            result = self.strassen(result, arg)
+        return result
 
     def pad_matrix(self, A, new_shape):
         """
@@ -126,6 +128,7 @@ class StrassenWrapper:
 
 
 if __name__ == "__main__":
+    from tests import MatrixMultiplicaitonTester
     strassen_wrapper = StrassenWrapper()
     tester = MatrixMultiplicaitonTester(strassen_wrapper.strassen)
     tester.run_all_tests()
