@@ -11,6 +11,9 @@ class InverseWrapper:
         self.memory_used = 0
         self.time_used = []
 
+    def __call__(self, matrix: np.ndarray) -> np.ndarray:
+        return self.inverse(matrix)
+
     def inverse(self, matrix: np.ndarray) -> np.ndarray:
         """
         Funkcja odwracająca macierz z wykorzystaniem sposobu podanego na wykładzie.
