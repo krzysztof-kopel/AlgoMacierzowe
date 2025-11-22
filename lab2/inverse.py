@@ -27,14 +27,12 @@ class InverseWrapper:
         a11, a12, a21, a22 = self.split(matrix)
 
         a11_rev = self.inverse(a11)
-        self.memory_used += a11_rev.nbytes
 
         s22 = a22 - self.matmul(a21, a11_rev, a12)
         self.flops += a22.shape[0] * a22.shape[1]
         self.memory_used += s22.nbytes
 
         s22_rev = self.inverse(s22)
-        self.memory_used += s22_rev.nbytes
 
         b11 = self.matmul(a11_rev, np.eye(a11_rev.shape[0], a11_rev.shape[1]) + self.matmul(a12, s22_rev, a21, a11_rev))
         self.flops += a11_rev.shape[0] * a11_rev.shape[1]
