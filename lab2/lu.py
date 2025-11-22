@@ -56,6 +56,31 @@ class LUWrapper:
         self.memory_used += sum(i.nbytes for i in lu_tuple)
         return lu_tuple
 
+    def det(self, matrix: np.ndarray) -> float:
+        """
+        Funkcja obliczająca wyznacznik macierzy za pomocą rozkładu LU.
+        :param matrix: Macierz wejściowa.
+        :return: Wyznacznik macierzy.
+        """
+        _, u = self.lu(matrix)
+        det = 1
+        for num in [u[i][i] for i in range(u.shape[0])]:
+            det *= num
+            self.flops += 1
+        return det
+
+    def det_lu(self, u_matrix: np.ndarray) -> float:
+        """
+        Funkcja obliczająca wyznacznik macierzy trójkątnej górnej.
+        :param u_matrix: Macierz trójkątna górna.
+        :return: Wyznacznik macierzy.
+        """
+        det = 1
+        for num in u_matrix:
+            det *= num
+            self.flops += 1
+        return det
+
     def split(self, matrix: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
         Funkcja rozdzielająca macierz na 4 (w miarę możliwości równe) części.
@@ -80,6 +105,7 @@ if __name__ == "__main__":
 
     matrix = np.array([[1, 2], [3, 4]])
     print(lu_strassen_wrapper.lu(matrix))
+    assert lu_strassen_wrapper.det(matrix) == -2, "Det Strassen źle"
 
     for i in [1, 2, 3, 4, 5, 8, 16, 20]:
         matrix = np.random.rand(i, i)
