@@ -5,7 +5,10 @@ class StrassenWrapper:
     def __init__(self):
         self.flops = 0
         self.memory_used = 0
-        self.time_used = [] 
+        self.time_used = []
+
+    def __call__(self, matrix_a: np.ndarray, matrix_b: np.ndarray) -> np.ndarray:
+        return self.strassen(matrix_a, matrix_b)
 
     def pad_matrix(self, A, new_shape):
         """

@@ -7,6 +7,9 @@ class BinetWrapper:
         self.memory_used = 0
         self.time_used = [] # Tablica, aby można było mierzyć czas wielokrotnie i brać medianę
 
+    def __call__(self, matrix_a: np.ndarray, matrix_b: np.ndarray) -> np.ndarray:
+        return self.binet(matrix_a, matrix_b)
+
     def binet(self, matrix_a: np.ndarray, matrix_b: np.ndarray) -> np.ndarray:
         """
         Rekurencyjna funkcja mnożąca dwie macerze metodą Bineta.
