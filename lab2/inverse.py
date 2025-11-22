@@ -45,6 +45,8 @@ class InverseWrapper:
         self.flops += b21.shape[0] * b21.shape[1]
         self.memory_used += b21.nbytes
 
+        self.memory_used += self.matmul.memory_used
+        self.flops += self.matmul.flops
         return np.vstack((np.hstack((b11, b12)), np.hstack((b21, s22_rev))))
 
 
