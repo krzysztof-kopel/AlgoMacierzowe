@@ -67,6 +67,7 @@ class LUWrapper:
         for num in [u[i][i] for i in range(u.shape[0])]:
             det *= num
             self.flops += 1
+        self.flops -= 1
         return det
 
     def det_lu(self, u_matrix: np.ndarray) -> float:
@@ -79,6 +80,7 @@ class LUWrapper:
         for i, num in enumerate(u_matrix):
             det *= num[i]
             self.flops += 1
+        self.flops -= 1
         return det
 
     def split(self, matrix: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
