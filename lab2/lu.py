@@ -76,8 +76,8 @@ class LUWrapper:
         :return: Wyznacznik macierzy.
         """
         det = 1
-        for num in u_matrix:
-            det *= num
+        for i, num in enumerate(u_matrix):
+            det *= num[i]
             self.flops += 1
         return det
 
@@ -106,6 +106,8 @@ if __name__ == "__main__":
     matrix = np.array([[1, 2], [3, 4]])
     print(lu_strassen_wrapper.lu(matrix))
     assert lu_strassen_wrapper.det(matrix) == -2, "Det Strassen źle"
+    _, u = lu_strassen_wrapper.lu(matrix)
+    assert lu_strassen_wrapper.det_lu(u) == -2, "Det_LU Strassen źle"
 
     for i in [1, 2, 3, 4, 5, 8, 16, 20]:
         matrix = np.random.rand(i, i)
