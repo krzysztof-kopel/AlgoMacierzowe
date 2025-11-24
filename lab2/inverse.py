@@ -1,8 +1,7 @@
 import numpy as np
 
-from lab1.binet import BinetWrapper
-from lab1.strassen import StrassenWrapper
-
+from binet import BinetWrapper
+from strassen import StrassenWrapper
 
 class InverseWrapper:
     def __init__(self, matrix_multiplier: BinetWrapper | StrassenWrapper):
@@ -47,7 +46,9 @@ class InverseWrapper:
         self.memory_used += b21.nbytes
 
         self.memory_used += self.matmul.memory_used
+        self.matmul.memory_used = 0
         self.flops += self.matmul.flops
+        self.matmul.flops = 0
 
         self.memory_used += b11.nbytes + b12.nbytes + b21.nbytes + s22_rev.nbytes
         return np.vstack((np.hstack((b11, b12)), np.hstack((b21, s22_rev))))

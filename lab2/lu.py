@@ -2,10 +2,9 @@ from copy import deepcopy
 
 import numpy as np
 
-from lab1.binet import BinetWrapper
-from lab1.strassen import StrassenWrapper
-from lab2.inverse import InverseWrapper
-
+from binet import BinetWrapper
+from strassen import StrassenWrapper
+from inverse import InverseWrapper
 
 class LUWrapper:
     def __init__(self, matrix_multiplier: BinetWrapper | StrassenWrapper):
@@ -49,7 +48,11 @@ class LUWrapper:
         l22 = ls
 
         self.flops += self.inverse.flops + self.matmul.flops
+        self.inverse.flops = 0
+        self.matmul.flops = 0
         self.memory_used += self.inverse.memory_used + self.matmul.memory_used
+        self.inverse.memory_used = 0
+        self.matmul.memory_used = 0
 
         lu_tuple = (np.vstack((np.hstack((l11, np.zeros((l11.shape[0], l22.shape[1])))), np.hstack((l21, l22)))),
                 np.vstack((np.hstack((u11, u12)), np.hstack((np.zeros((u22.shape[0], u11.shape[1])), u22)))))
