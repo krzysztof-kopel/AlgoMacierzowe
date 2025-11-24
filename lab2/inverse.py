@@ -1,7 +1,8 @@
 import numpy as np
 
-from binet import BinetWrapper
-from strassen import StrassenWrapper
+from lab1.binet import BinetWrapper
+from lab1.strassen import StrassenWrapper
+
 
 class InverseWrapper:
     def __init__(self, matrix_multiplier: BinetWrapper | StrassenWrapper):
@@ -13,10 +14,12 @@ class InverseWrapper:
     def __call__(self, matrix: np.ndarray) -> np.ndarray:
         return self.inverse(matrix)
 
-    def inverse(self, matrix: np.ndarray) -> np.ndarray:
+    def inverse(self, matrix: np.ndarray, top_call: bool=True) -> np.ndarray:
         """
         Funkcja odwracająca macierz z wykorzystaniem sposobu podanego na wykładzie.
         :param matrix: Macierz do odwrócenia
+        :param top_call: Informacja, czy jest to zawołanie rekurencyjne funkcji (false), czy pierwsze, z innego
+        kawałka kodu (true).
         :return: Macierz odwrotna do podanej
         """
         if tuple(matrix.shape) == (1, 1):
@@ -25,13 +28,13 @@ class InverseWrapper:
 
         a11, a12, a21, a22 = self.split(matrix)
 
-        a11_rev = self.inverse(a11)
+        a11_rev = self.inverse(a11, False)
 
         s22 = a22 - self.matmul(a21, a11_rev, a12)
         self.flops += a22.shape[0] * a22.shape[1]
         self.memory_used += s22.nbytes
 
-        s22_rev = self.inverse(s22)
+        s22_rev = self.inverse(s22, False)
 
         b11 = self.matmul(a11_rev, np.eye(a11_rev.shape[0], a11_rev.shape[1]) + self.matmul(a12, s22_rev, a21, a11_rev))
         self.flops += a11_rev.shape[0] * a11_rev.shape[1]
@@ -45,10 +48,9 @@ class InverseWrapper:
         self.flops += b21.shape[0] * b21.shape[1]
         self.memory_used += b21.nbytes
 
-        self.memory_used += self.matmul.memory_used
-        self.matmul.memory_used = 0
-        self.flops += self.matmul.flops
-        self.matmul.flops = 0
+        if top_call:
+            self.memory_used += self.matmul.memory_used
+            self.flops += self.matmul.flops
 
         self.memory_used += b11.nbytes + b12.nbytes + b21.nbytes + s22_rev.nbytes
         return np.vstack((np.hstack((b11, b12)), np.hstack((b21, s22_rev))))

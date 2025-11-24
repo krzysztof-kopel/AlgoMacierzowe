@@ -2,9 +2,10 @@ from copy import deepcopy
 
 import numpy as np
 
-from binet import BinetWrapper
-from strassen import StrassenWrapper
-from inverse import InverseWrapper
+from lab1.binet import BinetWrapper
+from lab1.strassen import StrassenWrapper
+from lab2.inverse import InverseWrapper
+
 
 class LUWrapper:
     def __init__(self, matrix_multiplier: BinetWrapper | StrassenWrapper):
@@ -17,10 +18,12 @@ class LUWrapper:
     def __call__(self, matrix: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         return self.lu(matrix)
 
-    def lu(self, matrix: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def lu(self, matrix: np.ndarray, top_call: bool=True) -> tuple[np.ndarray, np.ndarray]:
         """
         Funkcja przeprowadzająca rozkład LU podanej macierzy.
         :param matrix: Macierz wejściowa.
+        :param top_call: Informacja, czy jest to zawołanie rekurencyjne funkcji (false), czy pierwsze, z innego
+        kawałka kodu (true).
         :return: Krotka macierzy L i U.
         """
         if matrix.shape[0] == 1 and matrix.shape[1] == 1:
@@ -28,13 +31,13 @@ class LUWrapper:
 
         a11, a12, a21, a22 = self.split(matrix)
 
-        l11, u11 = self.lu(a11)
+        l11, u11 = self.lu(a11, False)
 
-        u11_rev = self.inverse(u11)
+        u11_rev = self.inverse.inverse(u11)
 
         l21 = self.matmul(a21, u11_rev)
 
-        l11_rev = self.inverse(l11)
+        l11_rev = self.inverse.inverse(l11)
 
         u12 = self.matmul(l11_rev, a12)
 
@@ -42,17 +45,14 @@ class LUWrapper:
         self.memory_used += l22.nbytes
         self.flops += a22.shape[0] * a22.shape[1]
 
-        ls, us = self.lu(l22)
+        ls, us = self.lu(l22, False)
 
         u22 = us
         l22 = ls
 
-        self.flops += self.inverse.flops + self.matmul.flops
-        self.inverse.flops = 0
-        self.matmul.flops = 0
-        self.memory_used += self.inverse.memory_used + self.matmul.memory_used
-        self.inverse.memory_used = 0
-        self.matmul.memory_used = 0
+        if top_call:
+            self.flops += self.inverse.flops + self.matmul.flops
+            self.memory_used += self.inverse.memory_used + self.matmul.memory_used
 
         lu_tuple = (np.vstack((np.hstack((l11, np.zeros((l11.shape[0], l22.shape[1])))), np.hstack((l21, l22)))),
                 np.vstack((np.hstack((u11, u12)), np.hstack((np.zeros((u22.shape[0], u11.shape[1])), u22)))))
@@ -70,6 +70,7 @@ class LUWrapper:
         for num in [u[i][i] for i in range(u.shape[0])]:
             det *= num
             self.flops += 1
+        self.flops -= 1
         return det
 
     def det_lu(self, u_matrix: np.ndarray) -> float:
@@ -82,6 +83,7 @@ class LUWrapper:
         for i, num in enumerate(u_matrix):
             det *= num[i]
             self.flops += 1
+        self.flops -= 1
         return det
 
     def split(self, matrix: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:

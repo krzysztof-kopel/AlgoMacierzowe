@@ -14,7 +14,7 @@ class GaussWrapper:
         self.memory_used = 0
         self.time_used = []
 
-    def gaussElimination(self, matrix: np.ndarray) -> np.ndarray:
+    def gaussElimination(self, matrix: np.ndarray, topCall: bool = True) -> np.ndarray:
         """
         Rekurencyjna blokowa eliminacja Gaussa: dzieli macierz na bloki,
         wykonuje eliminację na bloku A11, oblicza dopełnienie Schura
@@ -51,7 +51,7 @@ class GaussWrapper:
         b2p = b2 - self.matmul(A21, U11_inv, b1p)
         self.flops += b2.shape[0] * b2.shape[1]
 
-        bottom = self.gaussElimination(np.column_stack((S, b2p)))
+        bottom = self.gaussElimination(np.column_stack((S, b2p)), topCall=False)
 
         A22p = bottom[:, :-1]
         b2pp = bottom[:, -1].reshape(-1, 1)
@@ -66,9 +66,9 @@ class GaussWrapper:
         self.memory_used += A_bottom.nbytes
         self.memory_used += A_new.nbytes
         self.memory_used += b_new.nbytes
-
-        self.flops += self.inverse.flops + self.matmul.flops
-        self.memory_used += self.inverse.memory_used + self.matmul.memory_used
+        if topCall:
+            self.flops += self.inverse.flops + self.matmul.flops
+            self.memory_used += self.inverse.memory_used + self.matmul.memory_used
 
         return np.column_stack((A_new, b_new))
 
