@@ -1,11 +1,16 @@
 import numpy as np
-from tests import MatrixMultiplicaitonTester
 
 class StrassenWrapper:
     def __init__(self):
         self.flops = 0
         self.memory_used = 0
-        self.time_used = [] 
+        self.time_used = []
+
+    def __call__(self, *args: list[np.ndarray]) -> np.ndarray:
+        result = args[0]
+        for arg in args[1:]:
+            result = self.strassen(result, arg)
+        return result
 
     def pad_matrix(self, A, new_shape):
         """
@@ -43,6 +48,7 @@ class StrassenWrapper:
                 for k in range(n):
                     C[i, j] += A[i, k] * B[k, j]
                     self.flops += 2
+                self.flops -= 1
         return C
 
     def _strassen_flexible(self, A, B):
@@ -64,7 +70,6 @@ class StrassenWrapper:
 
         A11, A12, A21, A22 = A[:k, :k], A[:k, k:], A[k:, :k], A[k:, k:]
         B11, B12, B21, B22 = B[:k, :k], B[:k, k:], B[k:, :k], B[k:, k:]
-        self.flops += 18 * (k ** 2)
 
         def felxible_multiply(X, Y):
             if X.shape == Y.shape and X.shape[0] == X.shape[1] and X.shape[0] > 4:
@@ -79,12 +84,12 @@ class StrassenWrapper:
         P5 = felxible_multiply(A11 + A12, B22)
         P6 = felxible_multiply(A21 - A11, B11 + B12)
         P7 = felxible_multiply(A12 - A22, B21 + B22)
+        self.flops += 10 * (k ** 2)
 
         C11 = P1 + P4 - P5 + P7
         C12 = P3 + P5
         C21 = P2 + P4
         C22 = P1 - P2 + P3 + P6
-
         self.flops += 8 * (k ** 2)
 
         C = np.vstack([
@@ -123,6 +128,7 @@ class StrassenWrapper:
 
 
 if __name__ == "__main__":
+    from tests import MatrixMultiplicaitonTester
     strassen_wrapper = StrassenWrapper()
     tester = MatrixMultiplicaitonTester(strassen_wrapper.strassen)
     tester.run_all_tests()
