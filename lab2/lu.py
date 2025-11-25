@@ -4,7 +4,7 @@ import numpy as np
 
 from lab1.binet import BinetWrapper
 from lab1.strassen import StrassenWrapper
-from lab2.inverse import InverseWrapper
+from inverse import InverseWrapper
 
 
 class LUWrapper:

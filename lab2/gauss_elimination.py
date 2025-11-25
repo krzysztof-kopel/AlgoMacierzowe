@@ -5,11 +5,13 @@ from strassen import StrassenWrapper
 from inverse import InverseWrapper
 from lu import LUWrapper
 
+from copy import deepcopy
+
 class GaussWrapper:
     def __init__(self, matrix_multiplier: BinetWrapper | StrassenWrapper):
         self.matmul = matrix_multiplier
-        self.LU = LUWrapper(matrix_multiplier=matrix_multiplier)
-        self.inverse = InverseWrapper(matrix_multiplier=matrix_multiplier)
+        self.LU = LUWrapper(matrix_multiplier=deepcopy(matrix_multiplier))
+        self.inverse = InverseWrapper(matrix_multiplier=deepcopy(matrix_multiplier))
         self.flops = 0
         self.memory_used = 0
         self.time_used = []
@@ -18,7 +20,7 @@ class GaussWrapper:
         """
         Rekurencyjna blokowa eliminacja Gaussa: dzieli macierz na bloki,
         wykonuje eliminację na bloku A11, oblicza dopełnienie Schura
-        i rekurencyjnie przetwarza blok dolny prawy. Zwraca
+        i rekurencyjnie przetwarza blok dolny prawy. Zwracas
         macierz po jednym pełnym kroku eliminacji blokowej.
         """
         A = matrix[:, :-1]
@@ -39,7 +41,7 @@ class GaussWrapper:
         U11_inv = self.inverse(U11)
 
         A11p = U11
-        A12p = self.matmul(L11_inv, A12)
+        A12p = self.matmul(L11_inv, A12) 
         A21p = np.zeros_like(A21)
 
         S = A22 - self.matmul(A21, U11_inv, A12p)
@@ -67,8 +69,8 @@ class GaussWrapper:
         self.memory_used += A_new.nbytes
         self.memory_used += b_new.nbytes
         if topCall:
-            self.flops += self.inverse.flops + self.matmul.flops
-            self.memory_used += self.inverse.memory_used + self.matmul.memory_used
+            self.flops += self.inverse.flops + self.matmul.flops + self.LU.flops
+            self.memory_used += self.inverse.memory_used + self.matmul.memory_used + self.LU.memory_used
 
         return np.column_stack((A_new, b_new))
 
@@ -94,7 +96,7 @@ if __name__ == "__main__":
     binet_wrapper = BinetWrapper()
     gauss_binet_wrapper = GaussWrapper(binet_wrapper)
 
-    for size in [1, 2, 3, 4, 5, 8, 16, 20]:
+    for size in [4]:
         A = np.random.rand(size, size) * 10 + 1
         x_true = np.random.rand(size)
         b = A @ x_true
@@ -105,9 +107,9 @@ if __name__ == "__main__":
         Ab_strassen = gauss_strassen_wrapper.gaussElimination(augmented.copy())
         U_strassen = Ab_strassen[:, :-1]
         b_strassen = Ab_strassen[:, -1]
-        if size == 4:
-            print(A)
-            print(gauss_strassen_wrapper.flops)
+
+        print(gauss_strassen_wrapper.flops)
+
         x_strassen = np.linalg.solve(U_strassen, b_strassen)
         assert np.allclose(x_strassen, x_true, atol=1e-5), \
             f"Gauss(Strassen) źle dla size={size}"
@@ -120,6 +122,8 @@ if __name__ == "__main__":
         Ab_binet = gauss_binet_wrapper.gaussElimination(augmented.copy())
         U_binet = Ab_binet[:, :-1]
         b_binet = Ab_binet[:, -1]
+
+        print(gauss_binet_wrapper.flops)
 
         x_binet = np.linalg.solve(U_binet, b_binet)
         assert np.allclose(x_binet, x_true, atol=1e-5), \
