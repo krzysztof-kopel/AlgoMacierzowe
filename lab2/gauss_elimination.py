@@ -16,13 +16,31 @@ class GaussWrapper:
         self.memory_used = 0
         self.time_used = []
 
-    def gaussElimination(self, matrix: np.ndarray, topCall: bool = True) -> np.ndarray:
+    def gaussElimination(self, matrix: np.ndarray, top_call: bool = True) -> np.ndarray:
         """
         Rekurencyjna blokowa eliminacja Gaussa: dzieli macierz na bloki,
         wykonuje eliminację na bloku A11, oblicza dopełnienie Schura
         i rekurencyjnie przetwarza blok dolny prawy. Zwracas
         macierz po jednym pełnym kroku eliminacji blokowej.
         """
+        if top_call:
+            self.flops = 0
+            self.memory_used = 0
+            self.matmul.flops = 0
+            self.matmul.memory_used = 0
+            self.LU.flops = 0
+            self.LU.memory_used = 0
+            self.LU.matmul.flops = 0
+            self.LU.matmul.memory_used = 0
+            self.LU.inverse.flops = 0
+            self.LU.inverse.memory_used = 0
+            self.LU.inverse.matmul.flops = 0
+            self.LU.inverse.matmul.memory_used = 0
+            self.inverse.flops = 0
+            self.inverse.memory_used = 0
+            self.inverse.matmul.flops = 0
+            self.inverse.matmul.memory_used = 0
+        
         A = matrix[:, :-1]
         b = matrix[:, -1]
 
@@ -36,9 +54,9 @@ class GaussWrapper:
         b1 = b[:n1].reshape(-1, 1)
         b2 = b[n1:].reshape(-1, 1)
 
-        L11, U11 = self.LU(A11)
-        L11_inv = self.inverse(L11)
-        U11_inv = self.inverse(U11)
+        L11, U11 = self.LU(A11, top_call=False)
+        L11_inv = self.inverse(L11, top_call=False)
+        U11_inv = self.inverse(U11, top_call=False)
 
         A11p = U11
         A12p = self.matmul(L11_inv, A12) 
@@ -53,7 +71,7 @@ class GaussWrapper:
         b2p = b2 - self.matmul(A21, U11_inv, b1p)
         self.flops += b2.shape[0] * b2.shape[1]
 
-        bottom = self.gaussElimination(np.column_stack((S, b2p)), topCall=False)
+        bottom = self.gaussElimination(np.column_stack((S, b2p)), top_call=False)
 
         A22p = bottom[:, :-1]
         b2pp = bottom[:, -1].reshape(-1, 1)
@@ -68,9 +86,9 @@ class GaussWrapper:
         self.memory_used += A_bottom.nbytes
         self.memory_used += A_new.nbytes
         self.memory_used += b_new.nbytes
-        if topCall:
-            self.flops += self.inverse.flops + self.matmul.flops + self.LU.flops
-            self.memory_used += self.inverse.memory_used + self.matmul.memory_used + self.LU.memory_used
+        if top_call:
+            self.flops += self.inverse.flops + self.matmul.flops + self.LU.flops + self.inverse.matmul.flops + self.LU.matmul.flops + self.LU.inverse.flops + self.LU.inverse.matmul.flops
+            self.memory_used += self.inverse.memory_used + self.matmul.memory_used + self.LU.memory_used + self.inverse.matmul.memory_used + self.LU.matmul.memory_used + self.LU.inverse.memory_used + self.LU.inverse.matmul.memory_used
 
         return np.column_stack((A_new, b_new))
 
@@ -96,7 +114,7 @@ if __name__ == "__main__":
     binet_wrapper = BinetWrapper()
     gauss_binet_wrapper = GaussWrapper(binet_wrapper)
 
-    for size in [4]:
+    for size in [1, 2, 3, 4, 5, 8, 16, 20]:
         A = np.random.rand(size, size) * 10 + 1
         x_true = np.random.rand(size)
         b = A @ x_true
@@ -107,8 +125,6 @@ if __name__ == "__main__":
         Ab_strassen = gauss_strassen_wrapper.gaussElimination(augmented.copy())
         U_strassen = Ab_strassen[:, :-1]
         b_strassen = Ab_strassen[:, -1]
-
-        print(gauss_strassen_wrapper.flops)
 
         x_strassen = np.linalg.solve(U_strassen, b_strassen)
         assert np.allclose(x_strassen, x_true, atol=1e-5), \
@@ -122,8 +138,6 @@ if __name__ == "__main__":
         Ab_binet = gauss_binet_wrapper.gaussElimination(augmented.copy())
         U_binet = Ab_binet[:, :-1]
         b_binet = Ab_binet[:, -1]
-
-        print(gauss_binet_wrapper.flops)
 
         x_binet = np.linalg.solve(U_binet, b_binet)
         assert np.allclose(x_binet, x_true, atol=1e-5), \

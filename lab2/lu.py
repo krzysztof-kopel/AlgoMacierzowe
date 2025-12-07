@@ -4,8 +4,7 @@ import numpy as np
 
 from lab1.binet import BinetWrapper
 from lab1.strassen import StrassenWrapper
-from inverse import InverseWrapper
-
+from lab2.inverse import InverseWrapper
 
 class LUWrapper:
     def __init__(self, matrix_multiplier: BinetWrapper | StrassenWrapper):
@@ -15,8 +14,8 @@ class LUWrapper:
         self.memory_used = 0
         self.time_used = []
 
-    def __call__(self, matrix: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        return self.lu(matrix)
+    def __call__(self, matrix: np.ndarray, top_call: bool=True) -> tuple[np.ndarray, np.ndarray]:
+        return self.lu(matrix, top_call=top_call)
 
     def lu(self, matrix: np.ndarray, top_call: bool=True) -> tuple[np.ndarray, np.ndarray]:
         """
@@ -26,6 +25,14 @@ class LUWrapper:
         kawałka kodu (true).
         :return: Krotka macierzy L i U.
         """
+        if top_call:
+            self.matmul.flops = 0
+            self.matmul.memory_used = 0
+            self.inverse.flops = 0
+            self.inverse.memory_used = 0
+            self.inverse.matmul.flops = 0
+            self.inverse.matmul.memory_used = 0
+
         if matrix.shape[0] == 1 and matrix.shape[1] == 1:
             return np.ones_like(matrix), matrix
 
@@ -33,11 +40,11 @@ class LUWrapper:
 
         l11, u11 = self.lu(a11, False)
 
-        u11_rev = self.inverse.inverse(u11)
+        u11_rev = self.inverse.inverse(u11, top_call=False)
 
         l21 = self.matmul(a21, u11_rev)
 
-        l11_rev = self.inverse.inverse(l11)
+        l11_rev = self.inverse.inverse(l11, top_call=False)
 
         u12 = self.matmul(l11_rev, a12)
 
@@ -45,7 +52,7 @@ class LUWrapper:
         self.memory_used += l22.nbytes
         self.flops += a22.shape[0] * a22.shape[1]
 
-        ls, us = self.lu(l22, False)
+        ls, us = self.lu(l22, top_call=False)
 
         u22 = us
         l22 = ls
@@ -53,6 +60,8 @@ class LUWrapper:
         if top_call:
             self.flops += self.inverse.flops + self.matmul.flops
             self.memory_used += self.inverse.memory_used + self.matmul.memory_used
+            self.flops += self.inverse.matmul.flops
+            self.memory_used += self.inverse.matmul.memory_used
 
         lu_tuple = (np.vstack((np.hstack((l11, np.zeros((l11.shape[0], l22.shape[1])))), np.hstack((l21, l22)))),
                 np.vstack((np.hstack((u11, u12)), np.hstack((np.zeros((u22.shape[0], u11.shape[1])), u22)))))
