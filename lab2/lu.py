@@ -2,9 +2,9 @@ from copy import deepcopy
 
 import numpy as np
 
-from lab1.binet import BinetWrapper
-from lab1.strassen import StrassenWrapper
-from lab2.inverse import InverseWrapper
+from binet import BinetWrapper
+from strassen import StrassenWrapper
+from inverse import InverseWrapper
 
 class LUWrapper:
     def __init__(self, matrix_multiplier: BinetWrapper | StrassenWrapper):

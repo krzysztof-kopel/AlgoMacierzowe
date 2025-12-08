@@ -1,7 +1,7 @@
 import numpy as np
 
-from lab1.binet import BinetWrapper
-from lab1.strassen import StrassenWrapper
+from binet import BinetWrapper
+from strassen import StrassenWrapper
 
 class InverseWrapper:
     def __init__(self, matrix_multiplier: BinetWrapper | StrassenWrapper):

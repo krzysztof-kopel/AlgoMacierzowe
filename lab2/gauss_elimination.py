@@ -1,9 +1,9 @@
 import numpy as np
 
-from lab1.binet import BinetWrapper
-from lab1.strassen import StrassenWrapper
-from lab2.inverse import InverseWrapper
-from lab2.lu import LUWrapper
+from binet import BinetWrapper
+from strassen import StrassenWrapper
+from inverse import InverseWrapper
+from lu import LUWrapper
 
 from copy import deepcopy
 
