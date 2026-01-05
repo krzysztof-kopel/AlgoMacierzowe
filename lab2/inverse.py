@@ -1,8 +1,7 @@
 import numpy as np
 
-from lab1.binet import BinetWrapper
-from lab1.strassen import StrassenWrapper
-
+from binet import BinetWrapper
+from strassen import StrassenWrapper
 
 class InverseWrapper:
     def __init__(self, matrix_multiplier: BinetWrapper | StrassenWrapper):
@@ -11,8 +10,8 @@ class InverseWrapper:
         self.memory_used = 0
         self.time_used = []
 
-    def __call__(self, matrix: np.ndarray) -> np.ndarray:
-        return self.inverse(matrix)
+    def __call__(self, matrix: np.ndarray, top_call: bool = True) -> np.ndarray:
+        return self.inverse(matrix, top_call=top_call)
 
     def inverse(self, matrix: np.ndarray, top_call: bool=True) -> np.ndarray:
         """
@@ -22,19 +21,23 @@ class InverseWrapper:
         kawałka kodu (true).
         :return: Macierz odwrotna do podanej
         """
+        if top_call:
+            self.matmul.flops = 0
+            self.matmul.memory_used = 0
+
         if tuple(matrix.shape) == (1, 1):
             self.flops += 1
             return np.array([[1 / matrix[0][0]]])
 
         a11, a12, a21, a22 = self.split(matrix)
 
-        a11_rev = self.inverse(a11, False)
+        a11_rev = self.inverse(a11, top_call=False)
 
         s22 = a22 - self.matmul(a21, a11_rev, a12)
         self.flops += a22.shape[0] * a22.shape[1]
         self.memory_used += s22.nbytes
 
-        s22_rev = self.inverse(s22, False)
+        s22_rev = self.inverse(s22, top_call=False)
 
         b11 = self.matmul(a11_rev, np.eye(a11_rev.shape[0], a11_rev.shape[1]) + self.matmul(a12, s22_rev, a21, a11_rev))
         self.flops += a11_rev.shape[0] * a11_rev.shape[1]
@@ -87,10 +90,13 @@ if __name__ == "__main__":
         A = np.random.rand(size, size) * 10 + 1
         A_inv_strassen = inverse_strassen_wrapper.inverse(A)
         A_inv_binet = inverse_binet_wrapper.inverse(A)
+        
+        print("Binet: ", inverse_binet_wrapper.flops)
+        print("Strassen: ", inverse_strassen_wrapper.flops)
 
         identity_strassen = strassen_wrapper(A, A_inv_strassen)
         identity_binet = binet_wrapper(A, A_inv_binet)
-
+        
         assert np.allclose(identity_strassen, np.eye(size), atol=1e-5), f"Strassen źle dla {size}: {A}, {A_inv_strassen}, {identity_strassen}"
         assert np.allclose(identity_binet, np.eye(size), atol=1e-5), f"Binet źle dla {size}: {A}, {A_inv_binet}, {identity_binet}"
     print("Wszystkie testy przeszły pomyślnie.")
