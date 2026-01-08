@@ -1,6 +1,8 @@
 import numpy as np
 import scipy.sparse.linalg as spl
+import matplotlib.pyplot as plt
 
+from skimage import data
 
 class SVDComponents:
     def __init__(self, singular_values: np.ndarray, U: np.ndarray, V: np.ndarray):
@@ -93,12 +95,33 @@ class TreeNode:
             child.compress_matrix(epsilon)
             self.append_child(child)
 
+    def create_structure_image(self, shape: tuple[int, int] = None):
+        if shape is None:
+            shape = self.matrix.shape
 
-# proste testy, jutro dorobie porządne
+        img = np.zeros(shape)
 
-M = np.random.randn(1280, 1280)
-rank = 8
-eps = 1e-8
+        def draw(node):
+            if not node.children:
+                r0, c0, r1, c1 = node.coordinates
+
+                img[r0:r1, c0:c1] = 1.0
+
+                # tutaj są tylko góna i lewa krawędź bo operujemy na pojedynczych pixelach
+                img[r0:r0+1, c0:c1] = 0.0
+                img[r0:r1, c0:c0+1] = 0.0
+            else:
+                for ch in node.children:
+                    draw(ch)
+
+        draw(self)
+        return img
+
+
+
+M = data.astronaut()[:, :, 2]
+rank = 4
+eps = 1e-2
 
 root = TreeNode(
     rank=rank,
@@ -108,32 +131,10 @@ root = TreeNode(
 
 root.compress_matrix(epsilon=eps)
 
-
-# na razie taka zvibecodowana funkcja do testowania
-
-def reconstruct_matrix(node: TreeNode, shape):
-    result = np.zeros(shape)
-
-    def fill(node: TreeNode):
-        r0, c0, r1, c1 = node.coordinates
-
-        if node.is_leaf:
-            if node.svd is not None and node.svd.singular_values.size > 0:
-                U = node.svd.U
-                S = np.diag(node.svd.singular_values)
-                V = node.svd.V
-                result[r0:r1, c0:c1] = U @ S @ V
-            else:
-                result[r0:r1, c0:c1] = node.matrix
-        else:
-            for child in node.children:
-                fill(child)
-
-    fill(node)
-    return result
+img = root.create_structure_image()
+plt.imshow(img, cmap="gray", interpolation="nearest")
+plt.savefig("structure.png", dpi=800)
+plt.close()
 
 
-M_hat = reconstruct_matrix(root, M.shape)
 
-rel_error = np.linalg.norm(M - M_hat) / np.linalg.norm(M)
-print("Relative reconstruction error:", rel_error)
