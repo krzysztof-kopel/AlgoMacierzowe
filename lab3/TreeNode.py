@@ -110,6 +110,8 @@ class TreeNode:
                 # tutaj są tylko góna i lewa krawędź bo operujemy na pojedynczych pixelach
                 img[r0:r0+1, c0:c1] = 0.0
                 img[r0:r1, c0:c0+1] = 0.0
+                img[r0:r0+1, c0:c1] = 0.0
+                img[r0:r1, c0:c0+1] = 0.0
             else:
                 for ch in node.children:
                     draw(ch)
@@ -117,11 +119,35 @@ class TreeNode:
         draw(self)
         return img
 
+    def reconstruct_image(self, shape: tuple[int, int] = None) -> np.ndarray:
+        if shape is None:
+            shape = self.matrix.shape
+
+        img = np.zeros(shape, dtype=np.float32)
+
+        def fill(node: 'TreeNode'):
+            r0, c0, r1, c1 = node.coordinates
+
+            if not node.children:
+                if node.svd is not None and node.svd.singular_values.size > 0:
+                    U = node.svd.U
+                    S = np.diag(node.svd.singular_values)
+                    V = node.svd.V
+                    img[r0:r1, c0:c1] = U @ S @ V
+                else:
+                    img[r0:r1, c0:c1] = node.matrix
+            else:
+                for ch in node.children:
+                    fill(ch)
+
+        fill(self)
+        return img
+
 
 
 M = data.astronaut()[:, :, 2]
-rank = 4
-eps = 1e-2
+rank = 16
+eps = 1e-4
 
 root = TreeNode(
     rank=rank,
@@ -129,12 +155,29 @@ root = TreeNode(
     matrix=M
 )
 
-root.compress_matrix(epsilon=eps)
+# root.compress_matrix(epsilon=eps)
 
-img = root.create_structure_image()
-plt.imshow(img, cmap="gray", interpolation="nearest")
-plt.savefig("structure.png", dpi=800)
-plt.close()
+# img = root.create_structure_image()
+# plt.imshow(img, cmap="gray", interpolation="nearest")
+# plt.savefig("structure.png", dpi=1024)
+# plt.close()
 
+compressed = root.reconstruct_image()
 
+compressed = np.clip(compressed, 0, 255).astype(np.uint8)
+
+fig = plt.figure(figsize=(12, 6))
+
+plt.subplot(1, 2, 1)
+plt.title("Oryginał")
+plt.imshow(M, cmap="gray")
+plt.axis("off")
+
+plt.subplot(1, 2, 2)
+plt.title("Po kompresji")
+plt.imshow(compressed, cmap="gray")
+plt.axis("off")
+
+plt.savefig("comparison.png", dpi=300, bbox_inches="tight")
+plt.close(fig)
 
