@@ -30,7 +30,7 @@ class TreeNode:
         self.children.append(child)
         self.is_leaf = False
 
-    def compress_matrix(self, epsilon: float | None = None, singular_values_number: int | None = None):
+    def compress_matrix(self, epsilon: float = 1e-10):
         matrix = self.matrix
         m, n = matrix.shape
 
@@ -49,29 +49,20 @@ class TreeNode:
         svd_components = SVD.svd_partial_decomposition(matrix, self.rank)
 
         singular_values = svd_components.singular_values
+        rank_to_use = self.rank
 
         # jesli uzyskana wartość na rank jest niższa niż epsilon to jest okay,
         # używamy danego partial svd jako kompresji dla danej części
-        if epsilon is not None:
-            rank_to_use = self.rank
-            if singular_values[-1] < epsilon:
-                while rank_to_use > 0 and singular_values[rank_to_use - 1] < epsilon:
-                    rank_to_use -= 1
+        if singular_values[-1] < epsilon:
+            while rank_to_use > 0 and singular_values[rank_to_use - 1] < epsilon:
+                rank_to_use -= 1
 
-                self.svd = SVDComponents(
-                    singular_values[:rank_to_use],
-                    svd_components.U[:, :rank_to_use],
-                    svd_components.V[:rank_to_use, :]
-                )
-                return
-        elif singular_values_number is not None:
             self.svd = SVDComponents(
-                singular_values[:singular_values_number],
-                svd_components.U[:, :singular_values_number],
-                svd_components.V[:singular_values_number, :]
+                singular_values[:rank_to_use],
+                svd_components.U[:, :rank_to_use],
+                svd_components.V[:rank_to_use, :]
             )
-        else:
-            raise ValueError("Either epsilon or singular_values_number must be provided.")
+            return
 
         # jeśli nie to dzielimy daną macierz na 4 podmacierze i wrzucamy rekurencyjnie
         mid_row = m // 2
