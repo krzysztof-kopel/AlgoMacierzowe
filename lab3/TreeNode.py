@@ -11,6 +11,11 @@ class SVDComponents:
 
 class SVD:
     @staticmethod
+    def svd_full_decomposition(matrix: np.ndarray):
+        U, s, Vt = np.linalg.svd(matrix, full_matrices=False)
+        return SVDComponents(s, U, Vt)
+
+    @staticmethod
     def svd_partial_decomposition(matrix: np.ndarray, rank: int):
         svd_result = spl.svds(matrix, k=rank)
         return SVDComponents(svd_result[1], svd_result[0], svd_result[2])
