@@ -33,8 +33,25 @@ class CompressedMatrixOperations:
         return np.vstack((Y1 + Y2, Y3 + Y4))
 
     @staticmethod
-    def rSVDofCompressed(U: np.ndarray, V: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        pass
+    def rSVDofCompressed(U: np.ndarray, V: np.ndarray, eps: float = 1e-10) -> tuple[np.ndarray, np.ndarray, np.ndarray]: # tej funkcji nie jestem pewien
+        Qu, Ru = np.linalg.qr(U, mode="reduced")
+        Qv, Rv = np.linalg.qr(V, mode="reduced")
+
+        M = Ru @ Rv.T
+        Um, S, VmT = np.linalg.svd(M, full_matrices=False)
+
+        if eps is not None:
+            r = np.sum(S > eps)
+            Um = Um[:, :r]
+            S = S[:r]
+            VmT = VmT[:r, :]
+        else:
+            r = len(S)
+
+        U_new = Qu @ Um
+        V_new = Qv @ VmT.T
+
+        return U_new, S, V_new
 
     @staticmethod
     def matrix_matrix_add(treeNodeA: TreeNode, treeNodeB: TreeNode) -> TreeNode:
