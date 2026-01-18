@@ -1,5 +1,5 @@
 import numpy as np
-from lab3.TreeNode import TreeNode
+from TreeNode import TreeNode
 
 class CompressedMatrixOperations:
     @staticmethod
