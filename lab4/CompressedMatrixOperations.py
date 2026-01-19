@@ -33,25 +33,13 @@ class CompressedMatrixOperations:
         return np.vstack((Y1 + Y2, Y3 + Y4))
 
     @staticmethod
-    def rSVDofCompressed(U: np.ndarray, V: np.ndarray, eps: float = 1e-10) -> tuple[np.ndarray, np.ndarray, np.ndarray]: # tej funkcji nie jestem pewien
-        Qu, Ru = np.linalg.qr(U, mode="reduced")
-        Qv, Rv = np.linalg.qr(V, mode="reduced")
+    def rSVDofCompressed(U: np.ndarray, V: np.ndarray, eps: float = 1e-5) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        M = U @ V.T
+        U_full, S, Vt = np.linalg.svd(M, full_matrices=False)
 
-        M = Ru @ Rv.T
-        Um, S, VmT = np.linalg.svd(M, full_matrices=False)
-
-        if eps is not None:
-            r = np.sum(S > eps)
-            Um = Um[:, :r]
-            S = S[:r]
-            VmT = VmT[:r, :]
-        else:
-            r = len(S)
-
-        U_new = Qu @ Um
-        V_new = Qv @ VmT.T
-
-        return U_new, S, V_new
+        r = np.sum(S > eps)
+ 
+        return U_full[:, :r], S[:r], Vt[:r, :]
 
     @staticmethod
     def matrix_matrix_add(treeNodeA: TreeNode, treeNodeB: TreeNode) -> TreeNode:
@@ -131,8 +119,8 @@ class CompressedMatrixOperations:
             rows = U1.shape[0]
             U11, U12 = U1[:(rows//2), :], U1[(rows//2):, :]
 
-            rows = V1.shape[0]
-            V11, V12 = V1[:rows//2, :], V1[rows//2:, :]
+            cols = V1.shape[1]
+            V11, V12 = V1[:, :cols//2], V1[:, cols//2:]
 
             B1, B2, B3, B4 = treeNodeB.children
 
@@ -183,27 +171,69 @@ class CompressedMatrixOperations:
             res_node.append_child(C4)   
 
             return res_node
-        
-        
-    def matrix_matrix_mult(treeNodeA: TreeNode, treeNodeB: TreeNode) -> np.ndarray:
+
+        if not treeNodeA.children and not treeNodeB.children and treeNodeA.matrix is not None and treeNodeB.matrix is not None and treeNodeA.matrix.shape == (1, 1) and treeNodeB.matrix.shape == (1, 1):
+            val = treeNodeA.matrix[0, 0] + treeNodeB.matrix[0, 0]
+
+            res_node = TreeNode(
+                rank=0,
+                coordinates=treeNodeA.coordinates,
+                matrix=np.array([[val]])
+            )
+            res_node.svd = SVDComponents(
+                np.array([]),
+                np.empty((1, 0)),
+                np.empty((0, 1))
+            )
+
+            return res_node
+
+    @staticmethod
+    def matrix_matrix_mult(treeNodeA: TreeNode, treeNodeB: TreeNode) -> TreeNode:
         if not treeNodeA.children and not treeNodeB.children and treeNodeA.rank == 0 and treeNodeB.rank == 0:
-            return np.zeros((treeNodeA.matrix.shape[0], treeNodeB.matrix.shape[1]), dtype=treeNodeA.matrix.dtype)
+            return # trzeba zwrócić liść zerowy
         
         if not treeNodeA.children and not treeNodeB.children and treeNodeA.rank != 0 and treeNodeB.rank != 0:
-            return treeNodeA.svd.U @ (treeNodeA.svd.V @ treeNodeB.svd.U) @ treeNodeB.svd.V
+            M = treeNodeA.svd.V @ treeNodeB.svd.U 
+
+            U_new = treeNodeA.svd.U @ M             
+            V_new = treeNodeB.svd.V              
+
+            res = TreeNode(
+                rank=U_new.shape[1],
+                coordinates=treeNodeA.coordinates,
+                matrix=None
+            )
+            res.svd = SVDComponents(
+                singular_values=np.ones(U_new.shape[1]),
+                U=U_new,
+                V=V_new
+            )
+            return res
         
         if treeNodeA.children and treeNodeB.children:
-            A1, A2, A3, A4 = CompressedMatrixOperations.split(treeNodeA.matrix)
-            B1, B2, B3, B4 = CompressedMatrixOperations.split(treeNodeB.matrix)
+            A1, A2, A3, A4 = treeNodeA.children
+            B1, B2, B3, B4 = treeNodeB.children
 
             C1 = CompressedMatrixOperations.matrix_matrix_add(CompressedMatrixOperations.matrix_matrix_mult(A1, B1), CompressedMatrixOperations.matrix_matrix_mult(A2, B3))
             C2 = CompressedMatrixOperations.matrix_matrix_add(CompressedMatrixOperations.matrix_matrix_mult(A1, B2), CompressedMatrixOperations.matrix_matrix_mult(A2, B4))
             C3 = CompressedMatrixOperations.matrix_matrix_add(CompressedMatrixOperations.matrix_matrix_mult(A3, B1), CompressedMatrixOperations.matrix_matrix_mult(A4, B3))
             C4 = CompressedMatrixOperations.matrix_matrix_add(CompressedMatrixOperations.matrix_matrix_mult(A3, B2), CompressedMatrixOperations.matrix_matrix_mult(A4, B4))
+            
+            res_node = TreeNode(
+                rank=0,
+                coordinates=treeNodeA.coordinates,
+                matrix=None
+            )   
+            res_node.append_child(C1)
+            res_node.append_child(C2)
+            res_node.append_child(C3)   
+            res_node.append_child(C4)
 
-            return np.vstack((np.hstack((C1, C2)), np.hstack((C3, C4))))
+            return res_node
         
         if not treeNodeA.children and treeNodeB.children:
+            # tu chyba trzeba wchlonac singularavalues do U i V
             U1 = treeNodeA.svd.U
             V1 = treeNodeA.svd.V
 
@@ -215,17 +245,26 @@ class CompressedMatrixOperations:
             V11 = V1[:, :(cols//2)]
             V12 = V1[:, (cols//2):]
 
-            B1, B2, B3, B4 = CompressedMatrixOperations.split(treeNodeB.matrix)
-
+            B1, B2, B3, B4 = treeNodeB.children
             C1 = CompressedMatrixOperations.matrix_matrix_add(CompressedMatrixOperations.matrix_matrix_mult((U11 @ V11), B1), CompressedMatrixOperations.matrix_matrix_mult((U11 @ V12), B3))
             C2 = CompressedMatrixOperations.matrix_matrix_add(CompressedMatrixOperations.matrix_matrix_mult((U11 @ V11), B2), CompressedMatrixOperations.matrix_matrix_mult((U11 @ V12), B4))
             C3 = CompressedMatrixOperations.matrix_matrix_add(CompressedMatrixOperations.matrix_matrix_mult((U12 @ V11), B1), CompressedMatrixOperations.matrix_matrix_mult((U12 @ V12), B3))
             C4 = CompressedMatrixOperations.matrix_matrix_add(CompressedMatrixOperations.matrix_matrix_mult((U12 @ V11), B2), CompressedMatrixOperations.matrix_matrix_mult((U12 @ V12), B4))
 
-            return np.vstack((np.hstack((C1, C2)), np.hstack((C3, C4))))
+            res_node = TreeNode(
+                rank=0,
+                coordinates=treeNodeB.coordinates,
+                matrix=None
+            )
+            res_node.append_child(C1)   
+            res_node.append_child(C2)
+            res_node.append_child(C3)   
+            res_node.append_child(C4)
+
+            return res_node
         
         if treeNodeA.children and not treeNodeB.children:
-            A1, A2, A3, A4 = CompressedMatrixOperations.split(treeNodeA.matrix)
+            A1, A2, A3, A4 = treeNodeA.children
 
             U1 = treeNodeB.svd.U
             V1 = treeNodeB.svd.V
@@ -243,8 +282,28 @@ class CompressedMatrixOperations:
             C3 = CompressedMatrixOperations.matrix_matrix_add(CompressedMatrixOperations.matrix_matrix_mult(A1, (U12 @ V11)), CompressedMatrixOperations.matrix_matrix_mult(A3, (U12 @ V12)))
             C4 = CompressedMatrixOperations.matrix_matrix_add(CompressedMatrixOperations.matrix_matrix_mult(A2, (U12 @ V11)), CompressedMatrixOperations.matrix_matrix_mult(A4, (U12 @ V12)))
 
-            return np.vstack((np.hstack((C1, C2)), np.hstack((C3, C4))))
+            res_node = TreeNode(
+                rank=0,
+                coordinates=treeNodeA.coordinates,
+                matrix=None
+            )
+            res_node.append_child(C1)
+            res_node.append_child(C2)
+            res_node.append_child(C3)
+            res_node.append_child(C4)
+
+            return res_node
         
         if treeNodeA.matrix.shape == (1, 1) and treeNodeB.matrix.shape == (1, 1):  
-            return np.array([treeNodeA.matrix * treeNodeB.matrix])
+            res_node = TreeNode(
+                rank=0,
+                coordinates=treeNodeA.coordinates,
+                matrix=None
+            )
+            res_node.svd = SVDComponents(
+                singular_values=np.array([1.0]),
+                U=np.array([[1.0]]),
+                V=np.array([[1.0]])
+            )
+            return res_node
         
