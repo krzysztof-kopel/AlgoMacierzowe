@@ -190,8 +190,31 @@ class CompressedMatrixOperations:
 
     @staticmethod
     def matrix_matrix_mult(treeNodeA: TreeNode, treeNodeB: TreeNode) -> TreeNode:
+        def low_rank_leaf(U, V, coords):
+            node = TreeNode(
+                rank=U.shape[1],
+                coordinates=coords,
+                matrix=None
+            )
+            node.svd = SVDComponents(
+                singular_values=np.ones(U.shape[1]),
+                U=U,
+                V=V
+            )
+            return node
+
         if not treeNodeA.children and not treeNodeB.children and treeNodeA.rank == 0 and treeNodeB.rank == 0:
-            return # trzeba zwrócić liść zerowy
+            res_node = TreeNode(
+                rank=0,
+                coordinates=treeNodeA.coordinates,
+                matrix=None
+            )
+            res_node.svd = SVDComponents(
+                singular_values=np.array([]),
+                U=np.empty((treeNodeA.svd.U.shape[0], 0)),
+                V=np.empty((0, treeNodeB.svd.V.shape[1]))
+            )
+            return res_node
         
         if not treeNodeA.children and not treeNodeB.children and treeNodeA.rank != 0 and treeNodeB.rank != 0:
             M = treeNodeA.svd.V @ treeNodeB.svd.U 
@@ -233,9 +256,11 @@ class CompressedMatrixOperations:
             return res_node
         
         if not treeNodeA.children and treeNodeB.children:
-            # tu chyba trzeba wchlonac singularavalues do U i V
-            U1 = treeNodeA.svd.U
-            V1 = treeNodeA.svd.V
+            B1, B2, B3, B4 = treeNodeB.children
+
+            singularvalues_sqrt = np.sqrt(treeNodeA.svd.singular_values)
+            U1 = treeNodeA.svd.U * singularvalues_sqrt
+            V1 = treeNodeA.svd.V * singularvalues_sqrt
 
             rows = U1.shape[0]
             U11 = U1[:(rows//2), :]
@@ -245,11 +270,15 @@ class CompressedMatrixOperations:
             V11 = V1[:, :(cols//2)]
             V12 = V1[:, (cols//2):]
 
-            B1, B2, B3, B4 = treeNodeB.children
-            C1 = CompressedMatrixOperations.matrix_matrix_add(CompressedMatrixOperations.matrix_matrix_mult((U11 @ V11), B1), CompressedMatrixOperations.matrix_matrix_mult((U11 @ V12), B3))
-            C2 = CompressedMatrixOperations.matrix_matrix_add(CompressedMatrixOperations.matrix_matrix_mult((U11 @ V11), B2), CompressedMatrixOperations.matrix_matrix_mult((U11 @ V12), B4))
-            C3 = CompressedMatrixOperations.matrix_matrix_add(CompressedMatrixOperations.matrix_matrix_mult((U12 @ V11), B1), CompressedMatrixOperations.matrix_matrix_mult((U12 @ V12), B3))
-            C4 = CompressedMatrixOperations.matrix_matrix_add(CompressedMatrixOperations.matrix_matrix_mult((U12 @ V11), B2), CompressedMatrixOperations.matrix_matrix_mult((U12 @ V12), B4))
+            A11 = low_rank_leaf(U11, V11, B1.coordinates)
+            A12 = low_rank_leaf(U11, V12, B2.coordinates)
+            A13 = low_rank_leaf(U12, V11, B3.coordinates)
+            A14 = low_rank_leaf(U12, V12, B4.coordinates)
+
+            C1 = CompressedMatrixOperations.matrix_matrix_add(CompressedMatrixOperations.matrix_matrix_mult(A11, B1), CompressedMatrixOperations.matrix_matrix_mult(A12, B3))
+            C2 = CompressedMatrixOperations.matrix_matrix_add(CompressedMatrixOperations.matrix_matrix_mult(A11, B2), CompressedMatrixOperations.matrix_matrix_mult(A12, B4))
+            C3 = CompressedMatrixOperations.matrix_matrix_add(CompressedMatrixOperations.matrix_matrix_mult(A13, B1), CompressedMatrixOperations.matrix_matrix_mult(A14, B3))
+            C4 = CompressedMatrixOperations.matrix_matrix_add(CompressedMatrixOperations.matrix_matrix_mult(A13, B2), CompressedMatrixOperations.matrix_matrix_mult(A14, B4))
 
             res_node = TreeNode(
                 rank=0,
@@ -277,10 +306,15 @@ class CompressedMatrixOperations:
             V11 = V1[:, :(cols//2)]
             V12 = V1[:, (cols//2):]
 
-            C1 = CompressedMatrixOperations.matrix_matrix_add(CompressedMatrixOperations.matrix_matrix_mult(A1, (U11 @ V11)), CompressedMatrixOperations.matrix_matrix_mult(A3, (U11 @ V12)))
-            C2 = CompressedMatrixOperations.matrix_matrix_add(CompressedMatrixOperations.matrix_matrix_mult(A2, (U11 @ V11)), CompressedMatrixOperations.matrix_matrix_mult(A4, (U11 @ V12)))
-            C3 = CompressedMatrixOperations.matrix_matrix_add(CompressedMatrixOperations.matrix_matrix_mult(A1, (U12 @ V11)), CompressedMatrixOperations.matrix_matrix_mult(A3, (U12 @ V12)))
-            C4 = CompressedMatrixOperations.matrix_matrix_add(CompressedMatrixOperations.matrix_matrix_mult(A2, (U12 @ V11)), CompressedMatrixOperations.matrix_matrix_mult(A4, (U12 @ V12)))
+            B11 = low_rank_leaf(U11, V11, A1.coordinates)
+            B12 = low_rank_leaf(U11, V12, A2.coordinates)
+            B13 = low_rank_leaf(U12, V11, A3.coordinates)
+            B14 = low_rank_leaf(U12, V12, A4.coordinates)
+
+            C1 = CompressedMatrixOperations.matrix_matrix_add(CompressedMatrixOperations.matrix_matrix_mult(A1, B11), CompressedMatrixOperations.matrix_matrix_mult(A3, B12))
+            C2 = CompressedMatrixOperations.matrix_matrix_add(CompressedMatrixOperations.matrix_matrix_mult(A2, B11), CompressedMatrixOperations.matrix_matrix_mult(A4, B12))
+            C3 = CompressedMatrixOperations.matrix_matrix_add(CompressedMatrixOperations.matrix_matrix_mult(A1, B13), CompressedMatrixOperations.matrix_matrix_mult(A3, B14))
+            C4 = CompressedMatrixOperations.matrix_matrix_add(CompressedMatrixOperations.matrix_matrix_mult(A2, B13), CompressedMatrixOperations.matrix_matrix_mult(A4, B14))
 
             res_node = TreeNode(
                 rank=0,
@@ -293,17 +327,23 @@ class CompressedMatrixOperations:
             res_node.append_child(C4)
 
             return res_node
-        
-        if treeNodeA.matrix.shape == (1, 1) and treeNodeB.matrix.shape == (1, 1):  
-            res_node = TreeNode(
+
+        if (not treeNodeA.children and not treeNodeB.children 
+            and treeNodeA.matrix is not None 
+            and treeNodeB.matrix is not None 
+            and treeNodeA.matrix.shape == (1, 1) 
+            and treeNodeB.matrix.shape == (1, 1)):
+            val = treeNodeA.matrix[0, 0] * treeNodeB.matrix[0, 0]
+
+            res = TreeNode(
                 rank=0,
                 coordinates=treeNodeA.coordinates,
-                matrix=None
+                matrix=np.array([[val]])
             )
-            res_node.svd = SVDComponents(
-                singular_values=np.array([1.0]),
-                U=np.array([[1.0]]),
-                V=np.array([[1.0]])
+            res.svd = SVDComponents(
+                singular_values=np.array([]),
+                U=np.empty((1, 0)),
+                V=np.empty((0, 1))
             )
-            return res_node
+            return res
         
