@@ -1,7 +1,7 @@
 from platform import node
 import numpy as np
-from TreeNode import TreeNode
-from TreeNode import SVDComponents
+from lab3.TreeNode import TreeNode
+from lab3.TreeNode import SVDComponents
 
 
 class CompressedMatrixOperations:
@@ -20,7 +20,7 @@ class CompressedMatrixOperations:
         if not treeNode.children:
             if treeNode.rank == 0:
                 return np.zeros(treeNode.matrix.shape[0], dtype=vector.dtype)
-            return treeNode.svd.U @ (treeNode.svd.V @ vector)
+            return treeNode.svd.U @ (treeNode.svd.singular_values * treeNode.svd.V @ vector)
 
         rows = treeNode.matrix.shape[0]
         X1 = vector[:rows // 2]
@@ -63,18 +63,17 @@ class CompressedMatrixOperations:
                 np.empty((0, treeNodeA.matrix.shape[1]))
             )
             return res_node
-        
         if not treeNodeA.children and not treeNodeB.children and treeNodeA.rank != 0 and treeNodeB.rank != 0:
             singularvalues_sqrt_A = np.sqrt(treeNodeA.svd.singular_values)
             singularvalues_sqrt_B = np.sqrt(treeNodeB.svd.singular_values)
 
-            Ua = treeNodeA.svd.U @ np.diag(singularvalues_sqrt_A)
-            Va = np.diag(singularvalues_sqrt_A) @ treeNodeA.svd.V
-            Ub = treeNodeB.svd.U @ np.diag(singularvalues_sqrt_B)
-            Vb = np.diag(singularvalues_sqrt_B) @ treeNodeB.svd.V
+            Ua = treeNodeA.svd.U * singularvalues_sqrt_A
+            Va = treeNodeA.svd.V * singularvalues_sqrt_A
+            Ub = treeNodeB.svd.U * singularvalues_sqrt_B
+            Vb = treeNodeB.svd.V * singularvalues_sqrt_B
 
             U = np.hstack([Ua, Ub])
-            V = np.vstack([Va, Vb])
+            V = np.hstack([Va, Vb])
 
             U_new, S_new, V_new = CompressedMatrixOperations.rSVDofCompressed(U, V)
 
@@ -109,8 +108,8 @@ class CompressedMatrixOperations:
 
         if not treeNodeA.children and treeNodeB.children:
             singularvalues_sqrt = np.sqrt(treeNodeA.svd.singular_values)
-            U1 = treeNodeA.svd.U @ np.diag(singularvalues_sqrt)
-            V1 = np.diag(singularvalues_sqrt) @ treeNodeA.svd.V
+            U1 = treeNodeA.svd.U * singularvalues_sqrt
+            V1 = treeNodeA.svd.V * singularvalues_sqrt
 
             rows = U1.shape[0]
             U11, U12 = U1[:(rows // 2), :], U1[(rows // 2):, :]
@@ -140,15 +139,15 @@ class CompressedMatrixOperations:
 
         if treeNodeA.children and not treeNodeB.children:
             A1, A2, A3, A4 = treeNodeA.children
-            singularvalues_sqrt = np.sqrt(treeNodeB.svd.singular_values)
-            U1 = treeNodeB.svd.U @ np.diag(singularvalues_sqrt)
-            V1 = np.diag(singularvalues_sqrt) @ treeNodeB.svd.V
+            singulrvalues_sqrt = np.sqrt(treeNodeB.svd.singular_values)
+            U1 = treeNodeB.svd.U * singulrvalues_sqrt
+            V1 = treeNodeB.svd.V * singulrvalues_sqrt
 
             rows = U1.shape[0]
             U11, U12 = U1[:(rows // 2), :], U1[(rows // 2):, :]
 
-            cols = V1.shape[1]
-            V11, V12 = V1[:, :cols // 2], V1[:, cols // 2:]
+            rows = V1.shape[0]
+            V11, V12 = V1[:rows // 2, :], V1[rows // 2:, :]
 
             B1 = low_rank_leaf(U11, V11, A1.coordinates)
             B2 = low_rank_leaf(U11, V12, A2.coordinates)
@@ -234,8 +233,26 @@ class CompressedMatrixOperations:
             return res_node
 
         if not treeNodeA.children and not treeNodeB.children and treeNodeA.rank != 0 and treeNodeB.rank != 0:
-            V = np.diag(treeNodeA.svd.singular_values) @ treeNodeA.svd.V
-            U = treeNodeB.svd.U @ np.diag(treeNodeB.svd.singular_values)
+            M = treeNodeA.svd.V @ treeNodeB.svd.U
+
+            U_new = treeNodeA.svd.U @ M
+            V_new = treeNodeB.svd.V
+
+            res = TreeNode(
+                rank=U_new.shape[1],
+                coordinates=treeNodeA.coordinates,
+                matrix=None
+            )
+            res.svd = SVDComponents(
+                singular_values=np.ones(U_new.shape[1]),
+                U=U_new,
+                V=V_new
+            )
+            return res
+        
+        if not treeNodeA.children and not treeNodeB.children and treeNodeA.rank != 0 and treeNodeB.rank != 0:
+            V = treeNodeA.svd.V * treeNodeA.svd.singular_values[:, np.newaxis]
+            U = treeNodeB.svd.U * treeNodeB.svd.singular_values
 
             M = V @ U
 
@@ -283,8 +300,8 @@ class CompressedMatrixOperations:
             B1, B2, B3, B4 = treeNodeB.children
 
             s_sqrt = np.sqrt(treeNodeA.svd.singular_values)
-            U = treeNodeA.svd.U @ np.diag(s_sqrt)
-            V = np.diag(s_sqrt) @ treeNodeA.svd.V
+            U = treeNodeA.svd.U * s_sqrt
+            V = treeNodeA.svd.V * s_sqrt[:, np.newaxis]
 
             mid_row = U.shape[0] // 2
             U_top = U[:mid_row, :]
@@ -327,8 +344,8 @@ class CompressedMatrixOperations:
             A1, A2, A3, A4 = treeNodeA.children
 
             s_sqrt = np.sqrt(treeNodeB.svd.singular_values)
-            U = treeNodeB.svd.U @ np.diag(s_sqrt)
-            V = np.diag(s_sqrt) @ treeNodeB.svd.V
+            U = treeNodeB.svd.U * s_sqrt
+            V = treeNodeB.svd.V * s_sqrt[:, np.newaxis]
 
             mid_row = U.shape[0] // 2
             U_top = U[:mid_row, :]
@@ -338,19 +355,10 @@ class CompressedMatrixOperations:
             V_left = V[:, :mid_col]
             V_right = V[:, mid_col:]
 
-            r0, c0, r1, c1 = treeNodeB.coordinates
-            mid_r = (r0 + r1) // 2
-            mid_c = (c0 + c1) // 2
-
-            coords_B11 = (r0,    c0,    mid_r, mid_c)
-            coords_B12 = (r0,    mid_c, mid_r, c1)
-            coords_B21 = (mid_r, c0,    r1,    mid_c)
-            coords_B22 = (mid_r, mid_c, r1,    c1)
-
-            B11 = low_rank_leaf(U_top, V_left, coords_B11)
-            B12 = low_rank_leaf(U_top, V_right, coords_B12)
-            B21 = low_rank_leaf(U_bot, V_left, coords_B21)
-            B22 = low_rank_leaf(U_bot, V_right, coords_B22)
+            B11 = low_rank_leaf(U_top, V_left, A1.coordinates)
+            B12 = low_rank_leaf(U_top, V_right, A2.coordinates)
+            B21 = low_rank_leaf(U_bot, V_left, A3.coordinates)
+            B22 = low_rank_leaf(U_bot, V_right, A4.coordinates)
 
             C1 = CompressedMatrixOperations.matrix_matrix_add(
                 CompressedMatrixOperations.matrix_matrix_mult(A1, B11),
