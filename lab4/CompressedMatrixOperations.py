@@ -141,8 +141,8 @@ class CompressedMatrixOperations:
         if treeNodeA.children and not treeNodeB.children:
             A1, A2, A3, A4 = treeNodeA.children
             singularvalues_sqrt = np.sqrt(treeNodeB.svd.singular_values)
-            U1 = treeNodeA.svd.U @ np.diag(singularvalues_sqrt)
-            V1 = np.diag(singularvalues_sqrt) @ treeNodeA.svd.V
+            U1 = treeNodeB.svd.U @ np.diag(singularvalues_sqrt)
+            V1 = np.diag(singularvalues_sqrt) @ treeNodeB.svd.V
 
             rows = U1.shape[0]
             U11, U12 = U1[:(rows // 2), :], U1[(rows // 2):, :]
