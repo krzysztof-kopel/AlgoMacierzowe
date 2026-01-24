@@ -199,6 +199,26 @@ class CompressedMatrixOperations:
             )
             return node
 
+        # tutaj ten ostatni warunek przeniosłem wyżej, ale możliwe że to nie było konieczne
+        if (not treeNodeA.children and not treeNodeB.children 
+                and treeNodeA.matrix is not None
+                and treeNodeB.matrix is not None
+                and treeNodeA.matrix.shape == (1, 1)
+                and treeNodeB.matrix.shape == (1, 1)):
+            val = treeNodeA.matrix[0, 0] * treeNodeB.matrix[0, 0]
+
+            res = TreeNode(
+                rank=0,
+                coordinates=treeNodeA.coordinates,
+                matrix=np.array([[val]])
+            )
+            res.svd = SVDComponents(
+                singular_values=np.array([]),
+                U=np.empty((1, 0)),
+                V=np.empty((0, 1))
+            )
+            return res
+
         if not treeNodeA.children and not treeNodeB.children and (treeNodeA.rank == 0 or treeNodeB.rank == 0):
             res_node = TreeNode(
                 rank=0, 
@@ -363,22 +383,3 @@ class CompressedMatrixOperations:
             res_node.append_child(C4)
 
             return res_node
-
-        if (not treeNodeA.children and not treeNodeB.children
-                and treeNodeA.matrix is not None
-                and treeNodeB.matrix is not None
-                and treeNodeA.matrix.shape == (1, 1)
-                and treeNodeB.matrix.shape == (1, 1)):
-            val = treeNodeA.matrix[0, 0] * treeNodeB.matrix[0, 0]
-
-            res = TreeNode(
-                rank=0,
-                coordinates=treeNodeA.coordinates,
-                matrix=np.array([[val]])
-            )
-            res.svd = SVDComponents(
-                singular_values=np.array([]),
-                U=np.empty((1, 0)),
-                V=np.empty((0, 1))
-            )
-            return res
