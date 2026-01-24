@@ -19,8 +19,9 @@ class CompressedMatrixOperations:
         if not treeNode.children:
             if treeNode.rank == 0:
                 return np.zeros(treeNode.matrix.shape[0], dtype=vector.dtype)
-            return treeNode.svd.U @ (treeNode.svd.V @ vector)
+            return (treeNode.svd.U * treeNode.svd.singular_values) @ (treeNode.svd.V @ vector)
 
+        # możliwe że tu trzeba będzie zmienić na cols
         rows = treeNode.matrix.shape[0]
         X1 = vector[:rows // 2]
         X2 = vector[rows // 2:]
