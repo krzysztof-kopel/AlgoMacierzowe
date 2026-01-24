@@ -68,12 +68,12 @@ class CompressedMatrixOperations:
             singularvalues_sqrt_B = np.sqrt(treeNodeB.svd.singular_values)
 
             Ua = treeNodeA.svd.U * singularvalues_sqrt_A
-            Va = treeNodeA.svd.V * singularvalues_sqrt_A
+            Va = treeNodeA.svd.V * singularvalues_sqrt_A[:, np.newaxis]
             Ub = treeNodeB.svd.U * singularvalues_sqrt_B
-            Vb = treeNodeB.svd.V * singularvalues_sqrt_B
+            Vb = treeNodeB.svd.V * singularvalues_sqrt_B[:, np.newaxis]
 
             U = np.hstack([Ua, Ub])
-            V = np.hstack([Va, Vb])
+            V = np.vstack([Va, Vb])
 
             U_new, S_new, V_new = CompressedMatrixOperations.rSVDofCompressed(U, V)
 
@@ -109,7 +109,7 @@ class CompressedMatrixOperations:
         if not treeNodeA.children and treeNodeB.children:
             singularvalues_sqrt = np.sqrt(treeNodeA.svd.singular_values)
             U1 = treeNodeA.svd.U * singularvalues_sqrt
-            V1 = treeNodeA.svd.V * singularvalues_sqrt
+            V1 = treeNodeA.svd.V * singularvalues_sqrt[:, np.newaxis]
 
             rows = U1.shape[0]
             U11, U12 = U1[:(rows // 2), :], U1[(rows // 2):, :]
@@ -141,7 +141,7 @@ class CompressedMatrixOperations:
             A1, A2, A3, A4 = treeNodeA.children
             singulrvalues_sqrt = np.sqrt(treeNodeB.svd.singular_values)
             U1 = treeNodeB.svd.U * singulrvalues_sqrt
-            V1 = treeNodeB.svd.V * singulrvalues_sqrt
+            V1 = treeNodeB.svd.V * singulrvalues_sqrt[:, np.newaxis]
 
             rows = U1.shape[0]
             U11, U12 = U1[:(rows // 2), :], U1[(rows // 2):, :]
@@ -231,24 +231,6 @@ class CompressedMatrixOperations:
                 V=np.empty((0, treeNodeB.svd.V.shape[1]))
             )
             return res_node
-
-        if not treeNodeA.children and not treeNodeB.children and treeNodeA.rank != 0 and treeNodeB.rank != 0:
-            M = treeNodeA.svd.V @ treeNodeB.svd.U
-
-            U_new = treeNodeA.svd.U @ M
-            V_new = treeNodeB.svd.V
-
-            res = TreeNode(
-                rank=U_new.shape[1],
-                coordinates=treeNodeA.coordinates,
-                matrix=None
-            )
-            res.svd = SVDComponents(
-                singular_values=np.ones(U_new.shape[1]),
-                U=U_new,
-                V=V_new
-            )
-            return res
         
         if not treeNodeA.children and not treeNodeB.children and treeNodeA.rank != 0 and treeNodeB.rank != 0:
             V = treeNodeA.svd.V * treeNodeA.svd.singular_values[:, np.newaxis]
