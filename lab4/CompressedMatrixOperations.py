@@ -55,16 +55,29 @@ class CompressedMatrixOperations:
                 1, 1) and treeNodeB.matrix.shape == (1, 1):
             val = treeNodeA.matrix[0, 0] + treeNodeB.matrix[0, 0]
 
-            res_node = TreeNode(
-                rank=0,
-                coordinates=treeNodeA.coordinates,
-                matrix=np.array([[val]])
-            )
-            res_node.svd = SVDComponents(
-                np.array([]),
-                np.empty((1, 0)),
-                np.empty((0, 1))
-            )
+            if abs(val) < 1e-15:
+                res_node = TreeNode(
+                    rank=0,
+                    coordinates=treeNodeA.coordinates,
+                    matrix=np.array([[val]])
+                )
+                res_node.svd = SVDComponents(
+                    np.array([]),
+                    np.empty((1, 0)),
+                    np.empty((0, 1))
+                )
+            else:
+                res_node = TreeNode(
+                    rank=1,
+                    coordinates=treeNodeA.coordinates,
+                    matrix=np.array([[val]])
+                )
+                u_val = 1.0 if val >= 0 else -1.0
+                res_node.svd = SVDComponents(
+                    singular_values=np.array([abs(val)]),
+                    U=np.array([[u_val]]),
+                    V=np.array([[1.0]])
+                )
 
             return res_node
 
@@ -201,24 +214,39 @@ class CompressedMatrixOperations:
             )
             return node
 
-        # tutaj ten ostatni warunek przeniosłem wyżej, ale możliwe że to nie było konieczne
-        if (not treeNodeA.children and not treeNodeB.children 
+        if (not treeNodeA.children and not treeNodeB.children
                 and treeNodeA.matrix is not None
                 and treeNodeB.matrix is not None
                 and treeNodeA.matrix.shape == (1, 1)
                 and treeNodeB.matrix.shape == (1, 1)):
+
             val = treeNodeA.matrix[0, 0] * treeNodeB.matrix[0, 0]
 
-            res = TreeNode(
-                rank=0,
-                coordinates=treeNodeA.coordinates,
-                matrix=np.array([[val]])
-            )
-            res.svd = SVDComponents(
-                singular_values=np.array([]),
-                U=np.empty((1, 0)),
-                V=np.empty((0, 1))
-            )
+            # Sprawdzamy, czy wartość można uznać za 0
+            if abs(val) < 1e-15:
+                res = TreeNode(
+                    rank=0,
+                    coordinates=treeNodeA.coordinates,
+                    matrix=np.array([[val]])
+                )
+                res.svd = SVDComponents(
+                    singular_values=np.array([]),
+                    U=np.empty((1, 0)),
+                    V=np.empty((0, 1))
+                )
+            else:
+                res = TreeNode(
+                    rank=1,
+                    coordinates=treeNodeA.coordinates,
+                    matrix=np.array([[val]])
+                )
+                u_val = 1.0 if val >= 0 else -1.0
+                res.svd = SVDComponents(
+                    singular_values=np.array([abs(val)]),
+                    U=np.array([[u_val]]),
+                    V=np.array([[1.0]])
+                )
+
             return res
 
         if not treeNodeA.children and not treeNodeB.children and (treeNodeA.rank == 0 or treeNodeB.rank == 0):
