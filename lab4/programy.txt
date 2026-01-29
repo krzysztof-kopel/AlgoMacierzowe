@@ -1,0 +1,349 @@
+import numpy as np
+import scipy.sparse.linalg as spl
+
+
+class SVDComponents:
+    def __init__(self, singular_values: np.ndarray, U: np.ndarray, V: np.ndarray):
+        self.singular_values = singular_values
+        self.U = U
+        self.V = V
+
+
+class SVD:
+    @staticmethod
+    def svd_partial_decomposition(matrix: np.ndarray, rank: int):
+        svd_result = spl.svds(matrix, k=rank)
+        return SVDComponents(svd_result[1], svd_result[0], svd_result[2])
+
+    @staticmethod
+    def svd_full_decomposition(matrix: np.ndarray):
+        U, s, Vt = np.linalg.svd(matrix, full_matrices=False)
+        return SVDComponents(s, U, Vt)
+
+
+class TreeNode:
+    def __init__(self, rank: int, coordinates: tuple[int, int, int, int],
+                 matrix: np.ndarray):
+        self.rank = rank
+        self.coordinates = coordinates  # zmieniłem size na coordinates jak coś, imo bardziej sugerująca nazwa
+        self.matrix = matrix
+        self.svd: SVDComponents | None = None
+        self.children: list['TreeNode'] = []
+        self.is_leaf = True
+
+    def append_child(self, child: 'TreeNode'):
+        self.children.append(child)
+        self.is_leaf = False
+
+    def compress_matrix(self, epsilon: float = 1e-10):
+        matrix = self.matrix
+        m, n = matrix.shape
+
+        if np.count_nonzero(matrix) == 0:
+            self.svd = SVDComponents(
+                np.array([]),
+                np.empty((m, 0)),
+                np.empty((0, n))
+            )
+            return
+
+        if min(m, n) <= 1:
+            svd = SVD.svd_full_decomposition(matrix)
+            self.svd = svd
+            return
+
+        if self.rank >= min(m, n):
+            svd = SVD.svd_full_decomposition(matrix)
+            self.svd = svd
+            return
+
+        # dla danej macierzy robimy czesciowe svd, dla rank i epsilon
+        svd_components = SVD.svd_partial_decomposition(matrix, self.rank)
+
+        singular_values = svd_components.singular_values
+        rank_to_use = self.rank
+
+        # jesli uzyskana wartość na rank jest niższa niż epsilon to jest okay,
+        # używamy danego partial svd jako kompresji dla danej części
+        if singular_values[-1] < epsilon:
+            while rank_to_use > 1 and singular_values[rank_to_use - 1] < epsilon:
+                rank_to_use -= 1
+
+            self.svd = SVDComponents(
+                singular_values[:rank_to_use],
+                svd_components.U[:, :rank_to_use],
+                svd_components.V[:rank_to_use, :]
+            )
+            return
+
+        # jeśli nie to dzielimy daną macierz na 4 podmacierze i wrzucamy rekurencyjnie
+        mid_row = m // 2
+        mid_col = n // 2
+        r0, c0, r1, c1 = self.coordinates
+
+        blocks = [
+            (matrix[:mid_row, :mid_col],
+             (r0, c0, r0 + mid_row, c0 + mid_col)),
+
+            (matrix[:mid_row, mid_col:],
+             (r0, c0 + mid_col, r0 + mid_row, c1)),
+
+            (matrix[mid_row:, :mid_col],
+             (r0 + mid_row, c0, r1, c0 + mid_col)),
+
+            (matrix[mid_row:, mid_col:],
+             (r0 + mid_row, c0 + mid_col, r1, c1)),
+        ]
+
+        for submatrix, coords in blocks:
+            child = TreeNode(self.rank, coords, submatrix)
+            child.compress_matrix(epsilon)
+            self.append_child(child)
+
+
+    def create_structure_image(self, shape: tuple[int, int] = None):
+        if shape is None:
+            shape = self.matrix.shape
+
+        img = np.zeros(shape)
+
+
+        def draw(node):
+            if not node.children:
+                r0, c0, r1, c1 = node.coordinates
+
+                img[r0:r1, c0:c1] = 1.0
+
+                img[r0:r0 + 1, c0:c1] = 0.0
+                img[r0:r1, c0:c0 + 1] = 0.0
+                img[r1 - 1:r1, c0:c1] = 0.0
+                img[r0:r1, c1 - 1:c1] = 0.0
+            else:
+                for ch in node.children:
+                    draw(ch)
+
+        draw(self)
+        img[0:3, 0:] = 0.0
+        img[0:, -2:-1] = 0.0
+        img[-2:-1, 0:] = 0.0
+        img[0:, 0:2] = 0.0
+        return img
+
+    def reconstruct_image(self, shape: tuple[int, int] = None) -> np.ndarray:
+        if shape is None:
+            shape = self.matrix.shape
+
+        img = np.zeros(shape, dtype=np.float32)
+
+        def fill(node: 'TreeNode'):
+            r0, c0, r1, c1 = node.coordinates
+
+            if not node.children:
+                U = node.svd.U
+                S = np.diag(node.svd.singular_values)
+                V = node.svd.V
+                img[r0:r1, c0:c1] = U @ S @ V
+            else:
+                for ch in node.children:
+                    fill(ch)
+
+        fill(self)
+        img = np.clip(img, 0, 255)
+        return img.round().astype(np.uint8)
+
+@staticmethod
+    def matrix_matrix_mult(treeNodeA: TreeNode, treeNodeB: TreeNode) -> TreeNode:
+        def low_rank_leaf(U, Vt, coords):
+            node = TreeNode(
+                rank=U.shape[1],
+                coordinates=coords,
+                matrix=None
+            )
+            node.svd = SVDComponents(
+                singular_values=np.ones(U.shape[1]),
+                U=U,
+                V=Vt
+            )
+            return node
+
+        if (not treeNodeA.children and not treeNodeB.children
+                and treeNodeA.matrix is not None
+                and treeNodeB.matrix is not None
+                and treeNodeA.matrix.shape == (1, 1)
+                and treeNodeB.matrix.shape == (1, 1)):
+
+            val = treeNodeA.matrix[0, 0] * treeNodeB.matrix[0, 0]
+
+            # Sprawdzamy, czy wartość można uznać za 0
+            if abs(val) < 1e-15:
+                res = TreeNode(
+                    rank=0,
+                    coordinates=treeNodeA.coordinates,
+                    matrix=np.array([[val]])
+                )
+                res.svd = SVDComponents(
+                    singular_values=np.array([]),
+                    U=np.empty((1, 0)),
+                    V=np.empty((0, 1))
+                )
+            else:
+                res = TreeNode(
+                    rank=1,
+                    coordinates=treeNodeA.coordinates,
+                    matrix=np.array([[val]])
+                )
+                u_val = 1.0 if val >= 0 else -1.0
+                res.svd = SVDComponents(
+                    singular_values=np.array([abs(val)]),
+                    U=np.array([[u_val]]),
+                    V=np.array([[1.0]])
+                )
+
+            return res
+
+        if not treeNodeA.children and not treeNodeB.children and (treeNodeA.rank == 0 or treeNodeB.rank == 0):
+            res_node = TreeNode(
+                rank=0,
+                coordinates=treeNodeA.coordinates,
+                matrix=None
+            )
+            res_node.svd = SVDComponents(
+                singular_values=np.array([]),
+                U=np.empty((treeNodeA.svd.U.shape[0], 0)),
+                V=np.empty((0, treeNodeB.svd.V.shape[1]))
+            )
+            return res_node
+
+        if not treeNodeA.children and not treeNodeB.children and treeNodeA.rank != 0 and treeNodeB.rank != 0:
+            V = treeNodeA.svd.V * treeNodeA.svd.singular_values[:, np.newaxis]
+            U = treeNodeB.svd.U * treeNodeB.svd.singular_values
+
+            M = V @ U
+
+            U_new = treeNodeA.svd.U @ M
+            V_new = treeNodeB.svd.V
+
+            res = TreeNode(
+                rank=U_new.shape[1],
+                coordinates=treeNodeA.coordinates,
+                matrix=None
+            )
+            res.svd = SVDComponents(
+                singular_values=np.ones(U_new.shape[1]),
+                U=U_new,
+                V=V_new
+            )
+            return res
+
+        if treeNodeA.children and treeNodeB.children:
+            A1, A2, A3, A4 = treeNodeA.children
+            B1, B2, B3, B4 = treeNodeB.children
+
+            C1 = CompressedMatrixOperations.matrix_matrix_add(CompressedMatrixOperations.matrix_matrix_mult(A1, B1),
+                                                              CompressedMatrixOperations.matrix_matrix_mult(A2, B3))
+            C2 = CompressedMatrixOperations.matrix_matrix_add(CompressedMatrixOperations.matrix_matrix_mult(A1, B2),
+                                                              CompressedMatrixOperations.matrix_matrix_mult(A2, B4))
+            C3 = CompressedMatrixOperations.matrix_matrix_add(CompressedMatrixOperations.matrix_matrix_mult(A3, B1),
+                                                              CompressedMatrixOperations.matrix_matrix_mult(A4, B3))
+            C4 = CompressedMatrixOperations.matrix_matrix_add(CompressedMatrixOperations.matrix_matrix_mult(A3, B2),
+                                                              CompressedMatrixOperations.matrix_matrix_mult(A4, B4))
+
+            res_node = TreeNode(
+                rank=0,
+                coordinates=treeNodeA.coordinates,
+                matrix=None
+            )
+            res_node.append_child(C1)
+            res_node.append_child(C2)
+            res_node.append_child(C3)
+            res_node.append_child(C4)
+
+            return res_node
+
+        if not treeNodeA.children and treeNodeB.children:
+            B1, B2, B3, B4 = treeNodeB.children
+
+            s_sqrt = np.sqrt(treeNodeA.svd.singular_values)
+            U = treeNodeA.svd.U * s_sqrt
+            V = treeNodeA.svd.V * s_sqrt[:, np.newaxis]
+
+            mid_row = U.shape[0] // 2
+            U_top = U[:mid_row, :]
+            U_bot = U[mid_row:, :]
+
+            mid_col = V.shape[1] // 2
+            V_left = V[:, :mid_col]
+            V_right = V[:, mid_col:]
+
+            A11 = low_rank_leaf(U_top, V_left, B1.coordinates)
+            A12 = low_rank_leaf(U_top, V_right, B2.coordinates)
+            A21 = low_rank_leaf(U_bot, V_left, B3.coordinates)
+            A22 = low_rank_leaf(U_bot, V_right, B4.coordinates)
+
+            C1 = CompressedMatrixOperations.matrix_matrix_add(
+                CompressedMatrixOperations.matrix_matrix_mult(A11, B1),
+                CompressedMatrixOperations.matrix_matrix_mult(A12, B3))
+
+            C2 = CompressedMatrixOperations.matrix_matrix_add(
+                CompressedMatrixOperations.matrix_matrix_mult(A11, B2),
+                CompressedMatrixOperations.matrix_matrix_mult(A12, B4))
+
+            C3 = CompressedMatrixOperations.matrix_matrix_add(
+                CompressedMatrixOperations.matrix_matrix_mult(A21, B1),
+                CompressedMatrixOperations.matrix_matrix_mult(A22, B3))
+
+            C4 = CompressedMatrixOperations.matrix_matrix_add(
+                CompressedMatrixOperations.matrix_matrix_mult(A21, B2),
+                CompressedMatrixOperations.matrix_matrix_mult(A22, B4))
+
+            res_node = TreeNode(rank=0, coordinates=treeNodeB.coordinates, matrix=None)
+            res_node.append_child(C1)
+            res_node.append_child(C2)
+            res_node.append_child(C3)
+            res_node.append_child(C4)
+
+            return res_node
+
+        if treeNodeA.children and not treeNodeB.children:
+            A1, A2, A3, A4 = treeNodeA.children
+
+            s_sqrt = np.sqrt(treeNodeB.svd.singular_values)
+            U = treeNodeB.svd.U * s_sqrt
+            V = treeNodeB.svd.V * s_sqrt[:, np.newaxis]
+
+            mid_row = U.shape[0] // 2
+            U_top = U[:mid_row, :]
+            U_bot = U[mid_row:, :]
+
+            mid_col = V.shape[1] // 2
+            V_left = V[:, :mid_col]
+            V_right = V[:, mid_col:]
+
+            B11 = low_rank_leaf(U_top, V_left, A1.coordinates)
+            B12 = low_rank_leaf(U_top, V_right, A2.coordinates)
+            B21 = low_rank_leaf(U_bot, V_left, A3.coordinates)
+            B22 = low_rank_leaf(U_bot, V_right, A4.coordinates)
+
+            C1 = CompressedMatrixOperations.matrix_matrix_add(
+                CompressedMatrixOperations.matrix_matrix_mult(A1, B11),
+                CompressedMatrixOperations.matrix_matrix_mult(A2, B21))
+
+            C2 = CompressedMatrixOperations.matrix_matrix_add(
+                CompressedMatrixOperations.matrix_matrix_mult(A1, B12),
+                CompressedMatrixOperations.matrix_matrix_mult(A2, B22))
+
+            C3 = CompressedMatrixOperations.matrix_matrix_add(
+                CompressedMatrixOperations.matrix_matrix_mult(A3, B11),
+                CompressedMatrixOperations.matrix_matrix_mult(A4, B21))
+
+            C4 = CompressedMatrixOperations.matrix_matrix_add(
+                CompressedMatrixOperations.matrix_matrix_mult(A3, B12),
+                CompressedMatrixOperations.matrix_matrix_mult(A4, B22))
+
+            res_node = TreeNode(rank=0, coordinates=treeNodeA.coordinates, matrix=None)
+            res_node.append_child(C1)
+            res_node.append_child(C2)
+            res_node.append_child(C3)
+            res_node.append_child(C4)
+
+            return res_node
